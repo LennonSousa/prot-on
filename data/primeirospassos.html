@@ -1,0 +1,218 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Primeiros passos - Prot-On</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <link href="\estilo-principal.css" rel="stylesheet">
+    <link rel="stylesheet" href="\bootstrap.min.css">
+    <link href="\open-iconic-bootstrap.css" rel="stylesheet">
+
+    <script src="\jquery-3.3.1.slim.min.js"></script>
+    <script src="\popper.min.js"></script>
+    <script src="\bootstrap.min.js"></script>
+    <script src="\script.js"></script>
+</head>
+<body>
+    <!-- Início do bloco fixo -->
+    <!-- Cabeçalho -->
+    <header>
+        <div class="container">
+            <section id="linha_topo" class="row">
+                <div class="col-3 div-lateral-menu">
+                    <span data-toggle="tooltip" data-placement="top" title="Instagram" aria-hidden="true">
+                        <a href="https://www.instagram.com/controllpest/" target="_blank">
+                            <img class="img_redes_menu" src="\rede_01.png" />
+                        </a>
+                    </span>
+                </div>
+
+                <div class="col-6">
+                    <span>Prot-On</span>
+                </div>
+
+                <div class="col-3 div-lateral-menu">
+                    <span data-toggle="tooltip" data-placement="top" title="Facebook" aria-hidden="true">
+                        <a href="https://www.facebook.com/Controll-Pest-Dedetizadora-Imperatriz-2010081185939703/" target="_blank">
+                            <img class="img_redes_menu" src="\rede_02.png" />
+                        </a>
+                    </span>
+                </div>
+            </section>
+        </div>
+    </header>
+
+    <!-- Menu -->
+    <section class="sticky-top bg-info">
+        <div class="container">
+            <div class="row navbar navbar-light justify-content-center">
+
+
+                <nav class="col-6 col-sm-6 navbar-expand-lg">
+                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav mr-auto ul-menu">
+                            <li class="nav-item">
+                                <a class="nav-link texto-menu" href="index.html">Início <span class="sr-only">(current)</span></a>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+
+
+            </div>
+        </div>
+    </section>
+    <!-- Fim do bloco fixo -->
+
+    <section class="container titulos-linha">
+        <div class="row">
+            <div class="col-12">
+                <span>Bem-vindo</span>
+            </div>
+        </div>
+    </section>
+
+    <article class="textos-linha">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-12 col-sm-6">
+                    <span>Olá, esse é o seu primeiro acesso ao sistema de automação residêncial Prot-On, siga esses 3 passos super fáceis para configurar o seu dispositivo.</span>
+                </div>
+            </div>
+        </div>
+    </article>
+
+    <section class="container titulos-linha">
+        <div class="row">
+            <div class="col-12">
+                <span>Siga os passos!</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="container textos-linha">
+        <div class="row">
+            <div class="col-12">
+                <div id="accordion">
+                    <div class="card">
+                        <div class="card-header" id="headingOne">
+                            <h5 class="mb-0">
+                                <button class="btn btn-link" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                    1º Passo: O que eu vou controlar?
+                                </button>
+                            </h5>
+                        </div>
+
+                        <div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#accordion">
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="nomeDisp0">Não se preocupe se errar, você pode alterar tudo mais tarde.</label>
+                                    <input type="text" class="form-control" id="nomeDisp0" aria-describedby="nomeDispositivo" placeholder="O que eu controlo?">
+                                    <small id="emailHelp" class="form-text text-muted">Ex: Lâmpada meu quarto, abajur sala.</small>
+                                    <small id="salvoAviso" class="form-text text-success"></small>
+                                </div>
+                                <button type="button" class="btn btn-info" onclick="dispPrimeiroAcesso()">Salvar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header" id="headingTwo">
+                            <h5 class="mb-0">
+                                <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                    2º Passo: Conectar a Wi-Fi.
+                                </button>
+                            </h5>
+                        </div>
+                        <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordion">
+                            <div class="card-body">
+
+                                <!-- Botão procurar redes -->
+                                <div class="form-group">
+                                    <button type="button" id="btProcuraRedes" class="btn btn-info" onclick="procuraRedes()">Procurar redes disponíveis</button>
+                                </div>
+
+                                <!-- Lista das redes -->
+                                <div class="form-group align-items-center justify-content-center">
+                                    <div class="col-12 col-sm-5">
+                                        <div id="div_botoes_redes" class="btn-group-vertical"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Modal -->
+                                <div class="modal fade" id="modalConectar" tabindex="-1" role="dialog" aria-labelledby="modalExcluirLabel" aria-hidden="true">
+                                    <div class="modal-dialog" role="document">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="ssidRede"></h5>
+                                                <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
+                                                    <span aria-hidden="true">&times;</span>
+                                                </button>
+                                            </div>
+
+                                            <div class="modal-body">
+                                                <div class="form-group">
+                                                    <label for="senhaRede" class="col-form-label">Digite a senha para conectar-se a rede</label>
+                                                    <input type="text" class="form-control" id="senhaRede" aria-describedby="senhaRede" placeholder="Senha">
+                                                    <small id="conectandoAviso" class="form-text text-success"></small>
+                                                </div>
+                                            </div>
+
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-info" onclick="conectarRede('ssidRede', 'senhaRede')">Conectar</button>
+                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Fechar</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header" id="headingThree">
+                            <h5 class="mb-0">
+                                <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                    3º Passo: Reiniciar o dispositivo e acessá-lo.
+                                </button>
+                            </h5>
+                        </div>
+                        <div id="collapseThree" class="collapse" aria-labelledby="headingThree" data-parent="#accordion">
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label id="passo3Lb" for="nomeDisp0">Você ainda precisa se conectar a uma rede Wi-Fi.</label>
+                                    <input type="text" id="ipDisp0" class="form-control" aria-describedby="nomeDispositivo" readonly>
+                                    <small id="passo3Ajuda" class="form-text text-muted"></small>
+                                </div>
+                                <button type="button" id="btFinaliza" class="btn btn-info" onclick="concluiConfig()" disabled>Finalizar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    </section>
+
+    <script>
+        $('[data-toggle="tooltip"]').tooltip();
+
+        $('#modalConectar').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget) // Button that triggered the modal
+            var recipient = button.data('ssid') // Extract info from data-* attributes
+            // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
+            // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+            var modal = $(this)
+            modal.find('.modal-title').text(recipient)
+        })
+    </script>
+</body>
+</html>

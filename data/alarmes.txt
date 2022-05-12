@@ -1,0 +1,15 @@
+@id0;
+@nome0=Ligar arandelas;
+@dispositivo0=0;
+@hora0=16;
+@minuto0=30;
+@acao0=1;
+@ativo=1;
+
+@id1;
+@nome1=Desligar;
+@dispositivo1=0;
+@hora1=16;
+@minuto1=35;
+@acao1=0;
+@ativo1=0;

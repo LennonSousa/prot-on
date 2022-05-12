@@ -18,8 +18,8 @@ const char* htmlfile = "/index.html";
 
 // Servidor
 // Endereço MAC e endereço IP do servidor
-//#define SSID "Batista_2-4Ghz"
-//#define PASSWORD "celularnove54321"
+//#define SSID "Your_newtork_SSID"
+//#define PASSWORD "Yout_netowrk_password"
 //#define IP "192.168.0.120"
 //#define GATEWAY "192.168.0.1"
 //#define SUBNET "255.255.255.0"

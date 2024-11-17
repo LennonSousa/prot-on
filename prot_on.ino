@@ -11,8 +11,9 @@
 #include <WiFiClientSecure.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
-#include <LittleFS.h>   //Include File System Headers
+#include <LittleFS.h>  //Include File System Headers
 #include <SNTPtime.h>
+#include <ArduinoJson.h>
 
 // define números de pinos
 const int portaLocal = 4;
@@ -20,6 +21,7 @@ int dispEncontrados;
 int alarmesEncontrados;
 const char* imagefile = "/image.png";
 const char* htmlfile = "/index.html";
+DynamicJsonDocument wifiScanResults(1024);
 
 // Servidor
 // Endereço MAC e endereço IP do servidor
@@ -31,8 +33,11 @@ const char* htmlfile = "/index.html";
 #define ArquivoConfigs "/configs.txt"
 #define ArquivoDisp "/dispositivos.txt"
 #define ArquivoAlarmes "/alarmes.txt"
+#define WifiScanResutsFile "/wifi_scan_results.txt"
+
 #define MAX_QTD_DISP 32
 #define MAX_QTD_ALARMES 64
+#define MAX_SSID_AMOUNT 10
 
 typedef struct {
   String id;
@@ -51,8 +56,15 @@ typedef struct {
   String ativo;
 } Alarme;
 
+typedef struct {
+  String id;
+  String ssid;
+  bool secure;
+} SSID;
+
 Dispositivo dispositivos[MAX_QTD_DISP];
 Alarme alarmes[MAX_QTD_ALARMES];
+SSID ssidsFound[MAX_SSID_AMOUNT];
 
 // Variável para informar se o dispositivo já foi configurado
 String textoConfig;
@@ -72,7 +84,7 @@ void setup() {
   Serial.begin(115200);
 
   //Initialize File System
-  if(!LittleFS.begin()){
+  if (!LittleFS.begin()) {
     Serial.println("An Error has occurred while mounting LittleFS");
     return;
   }
@@ -82,12 +94,11 @@ void setup() {
   textoAlarmes = carregaArquivo(ArquivoAlarmes);
   dispEncontrados = qtdDispositivos(textoDispositivos);
 
-  pinMode ( portaLocal, OUTPUT );
+  pinMode(portaLocal, OUTPUT);
 
   //Inicia o ponto de acesso se está configurado
   if (StringContains(textoConfig, "configurado=1")) {
-    }
-  else {
+  } else {
     //Muda a configuração para estação e ponto de acesso
     WiFi.mode(WIFI_AP_STA);
     Serial.println("Configurando como soft-AP ... ");
@@ -110,12 +121,12 @@ void setup() {
   // server.on("/novodisp", novoDispositivo);
   // server.on("/editadisp", editarDispositivo);
   // server.on("/excluidisp", excluirDispositivo);
-  server.onNotFound(handleWebRequests); //Set setver all paths are not found so we can handle as per URI
+  server.onNotFound(handleWebRequests);  //Set setver all paths are not found so we can handle as per URI
   server.begin();
 }
 
 void loop() {
-   server.handleClient();
+  server.handleClient();
   // dateTime = NTPch.getTime(-3, 0); // get time from internal clock
   // actualMinute = dateTime.minute;
 
@@ -142,8 +153,7 @@ void inicio() {
     Serial.println("Ja configurado");
 
     server.sendHeader("Location", "/index.html", true);  //Redirect to our html web page
-  }
-  else {
+  } else {
     Serial.println("Ainda nao configurado");
     server.sendHeader("Location", "/primeirospassos.html", true);  //Redirect to our html web page
   }
@@ -163,76 +173,136 @@ void modificaEstado() {
   String id = server.arg("id");
   String estadoNovo = server.arg("estado");
 
-  if (estadoNovo == "0")
-  {
-    digitalWrite(portaLocal, LOW); //LED ON
-    estadoAtual = "0"; //Feedback parameter
-  }
-  else
-  {
-    digitalWrite(portaLocal, HIGH); //LED OFF
-    estadoAtual = "1"; //Feedback parameter
+  if (estadoNovo == "0") {
+    digitalWrite(portaLocal, LOW);  //LED ON
+    estadoAtual = "0";              //Feedback parameter
+  } else {
+    digitalWrite(portaLocal, HIGH);  //LED OFF
+    estadoAtual = "1";               //Feedback parameter
   }
 
-  server.send(201, "application/json", "\{\"status\":"+ estadoAtual + "\}"); //Send web page
+  server.send(201, "application/json", "\{\"status\":" + estadoAtual + "\}");  //Send web page
 }
 
 void alteraEstado(String id, String estadoNovo) {
   if (id == "0") {
     if (estadoNovo == "0") {
-      digitalWrite(portaLocal, LOW); //LED ON
+      digitalWrite(portaLocal, LOW);  //LED ON
+    } else {
+      digitalWrite(portaLocal, HIGH);  //LED OFF
     }
-    else {
-      digitalWrite(portaLocal, HIGH); //LED OFF
-    }
+  } else {
   }
-  else {
+}
 
+JsonObject getJSonFromFile(DynamicJsonDocument* doc, String fileName, bool forceCleanONJsonError = true) {
+  // open the file for reading:
+  String text = carregaArquivo(fileName);
+
+  if (text) {
+    DeserializationError error = deserializeJson(*doc, text);
+    if (error) {
+      // if the file didn't open, print an error:
+      Serial.print(F("Error parsing JSON "));
+      Serial.println(error.c_str());
+
+      if (forceCleanONJsonError) {
+        return doc->to<JsonObject>();
+      }
+    }
+
+    return doc->as<JsonObject>();
+  } else {
+    // if the file didn't open, print an error:
+    Serial.print(F("Error opening (or file not exists) "));
+    Serial.println(fileName);
+
+    Serial.println(F("Empty json created"));
+    return doc->to<JsonObject>();
   }
+}
+
+bool saveJSonToAFile(DynamicJsonDocument* doc, String fileName) {
+  Serial.print(F("Start write..."));
+
+  String newText = "";
+
+  serializeJson(*doc, newText);
+
+  salvaArquivo(newText, fileName, false);
+
+  Serial.print(F("..."));
+  // close the file:
+  Serial.println(F("done."));
+
+  return true;
 }
 
 void procuraRedes() {
-  //request.send(200, "application/json", "{\"count\": 9,\"redes\": [{\"numero\": \"1\",\"ssid\": \"iot_b\",\"seguranca\": \"seguro\"}]}");
+  JsonObject obj = getJSonFromFile(&wifiScanResults, WifiScanResutsFile);
 
-  WiFi.scanNetworksAsync(prinScanResult);
+  JsonArray results;
+  // Check if exist the array
+  if (!obj.containsKey(F("results"))) {
+    Serial.println(F("Not find results array! Crete one!"));
+    
+    // results = obj.createNestedArray(F("results"));
+    
+    WiFi.scanNetworksAsync(printScanResult);
+
+    server.send(204, "application/json");
+  } else {
+    Serial.println(F("Find results array!"));
+    results = obj[F("results")];
+
+    String response = carregaArquivo(WifiScanResutsFile);
+
+    server.send(200, "application/json", response);
+  }
 }
 
-void printScanResult(int networksFound ) {
+void printScanResult(int networksFound) {
   Serial.printf("%d network(s) found\n", networksFound);
-  for (int i = 0; i < networksFound; i++)
-  {
+  for (int i = 0; i < networksFound; i++) {
     Serial.printf("%d: %s, %s\n", i + 1, WiFi.SSID(i).c_str(), WiFi.encryptionType(i) == ENC_TYPE_NONE ? "aberto" : "seguro");
   }
 
   //Cria um json que inicialmente mostra qual o valor máximo de gpio
   String json = "{\"count\":" + String(networksFound);
   //Lista de pinos
-  json += ",\"redes\": [";
-  for (int i = 0; i < networksFound; i++)
-  {
+  json += ",\"results\": [";
+  for (int i = 0; i < networksFound; i++) {
     //Adiciona no json as informações sobre este pino
     String seguro = WiFi.encryptionType(i) == ENC_TYPE_NONE ? "aberto" : "seguro";
     json += "{";
-    json += "\"numero\":\"" + String(i + 1) + "\",";
+    json += "\"id\":\"" + String(i + 1) + "\",";
     json += "\"ssid\":\"" + String(WiFi.SSID(i).c_str()) + "\",";
-    json += "\"seguranca\":\"" + String(seguro) + "\"";
+    json += "\"secure\":\"" + String(seguro) + "\"";
     json += "},";
   }
   json += "]}";
-  
+
   //Remove a última virgula que não é necessário após o último elemento
   json.replace(",]}", "]}");
   //Retorna sucesso e o json
   Serial.printf("Json de redes");
   Serial.println(json);
 
-  server.send(200, "application/json", json);
+  // // create an object to add to the array
+  // JsonObject objArrayNetworks = results.createNestedObject();
+
+  // for (int i = 0; i < sizeof(objArrayNetworks); i++) {
+  //   objArrayNetworks["prevNumOfElem"] = data.size();
+  //   objArrayNetworks["newNumOfElem"] = data.size() + 1;
+  // }
+
+  salvaArquivo(json, WifiScanResutsFile, false);
 }
 
 void conectaRede() {
-  
-  String ssidRede = server.arg("ssid"); //Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
-  String senhaRede = server.arg("senha"); //Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
+
+  String ssidRede = server.arg("ssid");    //Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
+  String senhaRede = server.arg("senha");  //Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
 
   char ssid[32];
   char senha[64];
@@ -250,8 +320,7 @@ void conectaRede() {
   String retorno = "";
 
   int y = 0;
-  while (WiFi.status() != WL_CONNECTED && y < 15)
-  {
+  while (WiFi.status() != WL_CONNECTED && y < 15) {
     delay(500);
     Serial.print(".");
     y++;
@@ -272,31 +341,29 @@ void conectaRede() {
   WiFi.printDiag(Serial);
   Serial.println(retorno);
 
-  String json = "\{\"baseUrl\":"+ retorno + "\}";
+  String json = "\{\"baseUrl\":" + retorno + "\}";
 
   server.send(201, "application/json", json);
 }
 
 String carregaArquivo(String caminho) {
   File arquivo;
-  String configuracoes = "";
+  String response = "";
   //Se o arquivo existe
-  if ((arquivo = LittleFS.open(caminho, "r")) != NULL)
-  {
+  if ((arquivo = LittleFS.open(caminho, "r")) != NULL) {
     Serial.println("");
     Serial.println("Leu o arquivo");
     // read from the file until there's nothing else in it:
     while (arquivo.available()) {
-      configuracoes += (char)arquivo.read();
+      response += (char)arquivo.read();
     }
     // close the file:
     arquivo.close();
-    Serial.println(configuracoes);
+    Serial.println(response);
     Serial.println("");
-    return configuracoes;
-  }
-  else {
-    return configuracoes;
+    return response;
+  } else {
+    return response;
   }
 }
 
@@ -304,14 +371,13 @@ bool salvaArquivo(String textoNovo, String caminho, bool recarrega) {
   File arquivo;
   String configuracoes = "";
   // Se o arquivo existe
-  if ((arquivo = LittleFS.open(caminho, "w")) != NULL)
-  {
+  if ((arquivo = LittleFS.open(caminho, "w")) != NULL) {
     // Escreve o novo texto no arquivo
     byte textoBytes[(textoNovo.length() + 1)];
 
     textoNovo.getBytes(textoBytes, (textoNovo.length() + 1));
 
-    arquivo.write((uint8_t *) textoBytes, sizeof(textoBytes));
+    arquivo.write((uint8_t*)textoBytes, sizeof(textoBytes));
 
     // Fecha o arquivo:
     arquivo.close();
@@ -335,8 +401,7 @@ bool salvaArquivo(String textoNovo, String caminho, bool recarrega) {
     //   }
     // }
     return true;
-  }
-  else {
+  } else {
     Serial.println("Erro ao salvar o arquivo");
     return false;
   }
@@ -403,7 +468,7 @@ bool editaConfiguracao(String configuracao, String novo, String texto, String ar
   return false;
 }
 
-bool loadFromSpiffs(String path ) {
+bool loadFromSpiffs(String path) {
   String dataType = "text/plain";
   if (path.endsWith("/")) path += "index.htm";
 

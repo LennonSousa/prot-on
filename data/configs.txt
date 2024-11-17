@@ -1,0 +1,3 @@
+configurado=0;
+@ssid=;
+@senha=;

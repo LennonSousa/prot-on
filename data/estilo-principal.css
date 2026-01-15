@@ -1,0 +1,96 @@
+﻿a:hover {
+    text-decoration: none !important;
+}
+
+@font-face {
+    font-family: OpenSans;
+    src: url(OpenSans-Regular.ttf);
+    font-style: normal;
+}
+
+body {
+    font-family: OpenSans !important;
+}
+
+header {
+    background: #000;
+    color: #fff;
+    text-align: center;
+    height: 30px;
+}
+
+.texto-menu {
+    -webkit-transition: all ease-in 0.3s;
+    -moz-transition: all ease-in 0.3s;
+    -o-transition: all ease-in 0.3s;
+    -ms-transition: all ease-in 0.3s;
+    transition: all ease-in 0.3s;
+    color: #fff !important;
+}
+
+    .texto-menu:hover {
+        color: rgba(234, 234, 234, 0.7) !important;
+    }
+
+.div-lateral-menu {
+    text-align: center;
+}
+
+.link-lateral-menu {
+    color: #fff;
+    webkit-transition: all ease-in 0.3s;
+    -moz-transition: all ease-in 0.3s;
+    -o-transition: all ease-in 0.3s;
+    -ms-transition: all ease-in 0.3s;
+    transition: all ease-in 0.3s;
+}
+
+    .link-lateral-menu:hover {
+        color: rgba(234, 234, 234, 0.7);
+    }
+
+.img_redes_menu {
+    width: 20px;
+    display: inline-block;
+    margin: 0px 7px 0px 7px;
+}
+
+.ul-menu {
+    justify-content: center;
+    width: 100%;
+}
+
+.titulos-linha {
+    margin-top: 30px;
+    font-weight: bold;
+    color: #17a2b8;
+    font-size: 1.5rem;
+}
+
+.textos-linha {
+    margin-top: 10px;
+    color: #929292;
+}
+
+#div_botoes_redes {
+    width: 100%;
+}
+
+.div-dispositivos {
+    margin-top: 10px;
+    color: #17a2b8;
+    border: 1px solid #e4e4e4;
+    border-radius: 5px;
+    padding: 5px 0px 5px 0px;
+    background: #eaf2f3;
+    text-align: center;
+    -webkit-transition: all ease-in 0.8s;
+    -moz-transition: all ease-in 0.8s;
+    -o-transition: all ease-in 0.8s;
+    -ms-transition: all ease-in 0.8s;
+    transition: all ease-in 0.8s;
+}
+
+#modal_footer_excluir {
+    display: inline !important;
+}

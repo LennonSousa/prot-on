@@ -1,0 +1,241 @@
+﻿<!DOCTYPE html>
+
+<html lang="pt-br" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Sistema de automação residêncial - Prot-On</title><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <link href="\estilo-principal.css" rel="stylesheet">
+    <link rel="stylesheet" href="\bootstrap.min.css">
+    <link href="open-iconic-bootstrap.css" rel="stylesheet">
+
+    <script src="\jquery-3.3.1.slim.min.js"></script>
+    <script src="\popper.min.js"></script>
+    <script src="\bootstrap.min.js"></script>
+    <script src="\script.js"></script>
+</head>
+<body onload="getStatusLocal()">
+
+    <!-- Início do bloco fixo -->
+    <!-- Cabeçalho -->
+    <header>
+        <div class="container">
+            <section id="linha_topo" class="row">
+                <div class="col-3 div-lateral-menu">
+                    <span data-toggle="tooltip" data-placement="bottom" title="Instagram" aria-hidden="true">
+                        <a href="https://www.instagram.com/controllpest/" target="_blank">
+                            <img class="img_redes_menu" src="rede_01.png" />
+                        </a>
+                    </span>
+                </div>
+
+                <div class="col-6">
+                    <span>Prot-On</span>
+                </div>
+
+                <div class="col-3 div-lateral-menu">
+                    <span data-toggle="tooltip" data-placement="bottom" title="Facebook" aria-hidden="true">
+                        <a href="https://www.facebook.com/Controll-Pest-Dedetizadora-Imperatriz-2010081185939703/" target="_blank">
+                            <img class="img_redes_menu" src="rede_02.png" />
+                        </a>
+                    </span>
+                </div>
+            </section>
+        </div>
+    </header>
+
+    <!-- Menu -->
+    <section class="sticky-top bg-info">
+        <div class="container">
+            <div class="row navbar navbar-light justify-content-center">
+
+
+                <nav class="col-6 col-sm-6 navbar-expand-lg">
+                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav mr-auto ul-menu">
+                            <li class="nav-item" data-toggle="tooltip" data-placement="bottom" title="Adicionar dispositivo" aria-hidden="true">
+                                <button data-toggle="modal" data-target="#modalAdd" class="btn btn-outline-light btn-sm">
+                                    <span class="oi oi-plus"></span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+
+
+            </div>
+        </div>
+    </section>
+    <!-- Fim do bloco fixo -->
+
+    <section class="titulos-linha">
+        <div>
+
+        </div>
+    </section>
+
+    <section id="sessao_dispositivos" class="container textos-linha">
+
+        <!-- Modal -->
+        <div class="modal fade" id="modalEditar" tabindex="-1" role="dialog" aria-labelledby="modalEditarLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="ssidRede">Editar </h5>
+                        <h5 class="modal-title" id="idDisp"></h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="nomeDisp" class="col-form-label">Nome do dispositivo</label>
+                            <input type="text" class="form-control" id="nomeDisp" aria-describedby="nomeDisp" placeholder="Nome">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ipDisp" class="col-form-label">IP</label>
+                            <input id="ipDisp" class="form-control" aria-describedby="ipDisp" placeholder="IP do dispositivo" type="text" disabled="">
+                            <small id="salvandoAviso" class="form-text text-muted">Ao clicar em salvar, a página será atualizada automaticamente!</small>
+                        </div>
+                    </div>
+
+                    <div id="modal_footer_excluir" class="modal-footer">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-info btn-sm" onclick="editarDisp()">Salvar</button>
+                            <button type="button" id="btExcluir" class="btn btn-danger btn-sm" onclick="excluirConfirma()">Excluir</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
+                        </div>
+                        <div class="form-group" id="divExcluir" style="display: none;">
+                            <small id="excluirAviso" class="form-text text-muted">Tem certeza que deseja excluir esse item? Esta ação não poderá ser desfeita.</small>
+                            <div class="btn-group">
+                                <button type="button" id="btExcluirSim" class="btn btn-danger btn-sm" onclick="excluirSim()">Sim</button>
+                                <button type="button" id="btExcluirNao" class="btn btn-info btn-sm" onclick="excluirNao()">Não</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+    <section class="titulos-linha">
+        <div>
+
+        </div>
+    </section>
+
+    <section class="container textos-linha"></section>
+
+    <!-- Modal novo dispositivo -->
+    <div class="modal fade" id="modalAdd" tabindex="-1" role="dialog" aria-labelledby="modalAddLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Novo</h5>
+                    <h5 class="modal-title"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <form>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="nomeNovoDisp" class="col-form-label">Nome do dispositivo</label>
+                            <input type="text" class="form-control" id="nomeNovoDisp" aria-describedby="nomeNovoDisp" placeholder="Nome*" required="">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ipNovoDisp" class="col-form-label">IP</label>
+                            <input id="ipNovoDisp" class="form-control" aria-describedby="ipNovoDisp" placeholder="IP do dispositivo*" type="text" required="">
+                            <small class="form-text text-muted">*Campo obrigatório.</small>
+                            <small class="form-text text-muted">Ao clicar em salvar, a página será atualizada automaticamente!</small>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-info btn-sm" onclick="novoDisp()">Salvar</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal alarmes -->
+    <div class="modal fade" id="modalAlarmes" tabindex="-1" role="dialog" aria-labelledby="modalAlarmesLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="nomeDispAlarme"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <section id="sessao_alarmes" class="container textos-linha"></section>
+                </div>
+
+                <div id="modal_footer_excluir" class="modal-footer">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        //document.getElementById('ipFixo').onchange = function () {
+        //    if (this.selectedIndex == "0")
+        //        document.getElementById("ipDisp").disabled = true;
+        //    else
+        //        document.getElementById("ipDisp").disabled = false;
+        //}
+
+        $('[data-toggle="tooltip"]').tooltip();
+
+        $('#modalEditar').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget) // Button that triggered the modal
+            var id = button.data('id')
+            var nome = button.data('nome') // Extract info from data-* attributes
+            var ip = button.data('ip')
+            // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
+            // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+
+            document.getElementById("idDisp").value = id
+            document.getElementById("nomeDisp").value = nome
+            document.getElementById("ipDisp").value = ip
+            document.getElementById("divExcluir").style.display = "none";
+
+            if (id == "0")
+                document.getElementById("btExcluir").disabled = true;
+            else
+                document.getElementById("btExcluir").disabled = false;
+        })
+
+        $('#modalAlarmes').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget) // Button that triggered the modal
+            var id = button.data('id')
+            var nome = button.data('nome') // Extract info from data-* attributes
+            // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
+            // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+            
+            document.getElementById("nomeDispAlarme").innerHTML = nome
+            procuraAlarmes(id);
+        })
+    </script>
+</body>
+</html>

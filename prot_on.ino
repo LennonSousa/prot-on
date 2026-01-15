@@ -23,10 +23,12 @@ int alarmesEncontrados;
 const char *imagefile = "/image.png";
 const char *htmlfile = "/index.html";
 JsonDocument wifiScanResults;
+JsonDocument settingsJSONResults;
+JsonDocument devicesJSONResults;
 
-#define SettingsFile "/configs.json"
-#define ArquivoDisp "/dispositivos.json"
-#define ArquivoAlarmes "/alarmes.json"
+#define SettingsFile "/settings.json"
+#define DevicesFile "/devices.json"
+#define ArquivoAlarmes "/schedules.json"
 #define WifiScanResutsFile "/wifi_scan_results.json"
 
 #define MAX_QTD_DISP 32
@@ -42,7 +44,7 @@ typedef struct
 
 typedef struct
 {
-  UUID id;
+  String id;
   String name;
   String ip;
   bool main;
@@ -87,9 +89,7 @@ strDateTime dateTime;
 JsonDocument getJSONFromFile(JsonDocument *doc, String fileName)
 {
   // open the file for reading:
-  String text = carregaArquivo(fileName);
-
-  Serial.println(text);
+  String text = loadFile(fileName);
 
   if (text)
   {
@@ -103,15 +103,18 @@ JsonDocument getJSONFromFile(JsonDocument *doc, String fileName)
       return doc->to<JsonObject>();
     }
 
-    return doc->as<JsonObject>();
+    serializeJson(*doc, Serial);
+    Serial.println();
+
+    return *doc;
   }
   else
   {
-    // if the file didn't open, print an error:
     Serial.print(F("Error opening (or file not exists) "));
     Serial.println(fileName);
 
-    Serial.println(F("Empty json created"));
+    Serial.println(F("Empty json returned"));
+
     return doc->to<JsonObject>();
   }
 }
@@ -119,11 +122,44 @@ JsonDocument getJSONFromFile(JsonDocument *doc, String fileName)
 Setting jsonToSettings(JsonDocument &doc)
 {
   Setting settingsResponse;
+
   settingsResponse.configured = doc["configured"] | false;
   settingsResponse.ssid = doc["ssid"] | "";
   settingsResponse.password = doc["password"] | "";
 
   return settingsResponse;
+}
+
+Device jsonToDevice(JsonDocument &obj)
+{
+  Device deviceResponse;
+
+  deviceResponse.id = String(obj["id"] | "");
+  deviceResponse.name = obj["name"] | "";
+  deviceResponse.ip = obj["ip"] | "";
+  deviceResponse.main = obj["main"] | false;
+
+  return deviceResponse;
+}
+
+void deviceToJSON(const Device &device, JsonDocument &obj)
+{
+  obj["id"] = device.id;
+  obj["name"] = device.name;
+  obj["ip"] = device.ip;
+  obj["main"] = device.main;
+}
+
+void jsonToDevices(JsonArray arr, Device *devices, int maxDevices)
+{
+  int i = 0;
+  for (JsonDocument obj : arr)
+  {
+    if (i >= maxDevices)
+      break;
+    devices[i] = jsonToDevice(obj);
+    i++;
+  }
 }
 
 void setup()
@@ -138,13 +174,17 @@ void setup()
     return;
   }
 
-  JsonDocument settingsJSON = getJSONFromFile(&wifiScanResults, SettingsFile);
+  JsonDocument settingsJSON = getJSONFromFile(&settingsJSONResults, SettingsFile);
+  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
 
   settings = jsonToSettings(settingsJSON);
+  jsonToDevices(devicesJSON.as<JsonArray>(), devices, MAX_QTD_DISP);
 
-  // textoDispositivos = carregaArquivo(ArquivoDisp);
-  // textoAlarmes = carregaArquivo(ArquivoAlarmes);
-  dispEncontrados = qtdDispositivos(textoDispositivos);
+  // textoDispositivos = loadFile(DevicesFile);
+  // textoAlarmes = loadFile(ArquivoAlarmes);
+
+  JsonArray arr = devicesJSON.as<JsonArray>();
+  dispEncontrados = arr.size();
 
   pinMode(portaLocal, OUTPUT);
 
@@ -171,9 +211,14 @@ void setup()
   else
   {
     // Muda a configuração para estação e ponto de acesso
+    String mac = WiFi.softAPmacAddress();
+    String lastDigits = mac.substring(mac.length() - 8);
+    lastDigits.replace(":", "");
+    String ssid = "Prot-On-" + lastDigits;
+
     WiFi.mode(WIFI_AP_STA);
     Serial.println("Configurando como soft-AP ... ");
-    Serial.println(WiFi.softAP("Prot-On-123456") ? "Ready" : "Failed!");
+    Serial.println(WiFi.softAP(ssid) ? "Ready" : "Failed!");
   }
 
   WiFi.onStationModeGotIP([](const WiFiEventStationModeGotIP &evt)
@@ -193,18 +238,23 @@ void setup()
   server.on("/status", HTTP_GET, statusLocal);
   server.on("/estadodispositivos", HTTP_GET, statusDispositivos);
   server.on("/modifica", HTTP_POST, modificaEstado);
-  server.on("/procuraredes", HTTP_GET, procuraRedes);
-  server.on("/conectarede", HTTP_POST, conectaRede);
+
+  // Wireless
+  server.on("/wireless", HTTP_GET, searchWireless);
+  server.on("/wireless", HTTP_POST, connectWireless);
   // server.on("/procuralarmes", procuraAlarmes);
   // server.on("/novoalarme", novoAlarme);
   // server.on("/editaalarme", editarAlarme);
   // server.on("/excluialarme", excluirAlarme);
   server.onNotFound(handleWebRequests); // Set set
-  server.on("/finalizaconfig", finalizaConfig);
+  server.on("/first-setting/finish", HTTP_POST, finalizaConfig);
+
+  // Device
   server.on("/novodisp", novoDispositivo);
-  server.on("/editadisp", editarDispositivo);
+  server.on("/device", HTTP_PUT, editarDispositivo);
   server.on("/excluidisp", excluirDispositivo);
   server.onNotFound(handleWebRequests); // Set setver all paths are not found so we can handle as per URI
+
   server.begin();
 }
 
@@ -356,7 +406,7 @@ bool saveJsonToAFile(JsonDocument *doc, String fileName)
   return true;
 }
 
-void procuraRedes()
+void searchWireless()
 {
   JsonDocument obj = getJSONFromFile(&wifiScanResults, WifiScanResutsFile);
 
@@ -377,7 +427,7 @@ void procuraRedes()
     Serial.println(F("Find results array!"));
     results = obj[F("results")];
 
-    String response = carregaArquivo(WifiScanResutsFile);
+    String response = loadFile(WifiScanResutsFile);
 
     server.send(200, "application/json", response);
   }
@@ -410,10 +460,46 @@ void printScanResult(int networksFound)
   serializeJson(doc, jsonString);
 }
 
-void conectaRede()
+void connectWireless()
 {
-  String networkSSID = server.arg("ssid");
-  String networkPassword = server.arg("password");
+  if (!server.hasArg("plain"))
+  {
+    JsonDocument doc;
+
+    doc["status"] = "error";
+    doc["message"] = "Body is required";
+
+    String out;
+
+    serializeJson(doc, out);
+
+    server.send(400, "application/json", out);
+
+    return;
+  }
+
+  String body = server.arg("plain");
+  JsonDocument jsonBody;
+
+  DeserializationError error = deserializeJson(jsonBody, body);
+  if (error)
+  {
+    JsonDocument doc;
+
+    doc["status"] = "error";
+    doc["message"] = "Invalid JSON";
+
+    String out;
+
+    serializeJson(doc, out);
+
+    server.send(400, "application/json", out);
+
+    return;
+  }
+
+  const String networkSSID = jsonBody["ssid"] | "";
+  const String networkPassword = jsonBody["password"] | "";
 
   char ssid[32];
   char password[64];
@@ -429,7 +515,7 @@ void conectaRede()
   Serial.print("Conectando");
 
   // Espera enquanto não conecta ao roteador
-  String retorno = "";
+  String baseUrl = "";
 
   int y = 0;
   while (WiFi.status() != WL_CONNECTED && y < 15)
@@ -441,43 +527,61 @@ void conectaRede()
 
   if (y < 15)
   {
-    retorno = "http://" + WiFi.localIP().toString();
+    baseUrl = "http://" + WiFi.localIP().toString();
     Serial.print("Novo IP: ");
     Serial.println(WiFi.localIP());
   }
 
   if (WiFi.status() == WL_CONNECTED)
   {
-    JsonDocument settingsJSON = getJSONFromFile(&wifiScanResults, SettingsFile);
+    JsonDocument settingsJSON = getJSONFromFile(&settingsJSONResults, SettingsFile);
 
     settingsJSON["ssid"] = networkSSID;
     settingsJSON["password"] = networkPassword;
 
     saveJsonToAFile(&settingsJSON, SettingsFile);
 
-    editaConfiguracao("@ip0", retorno, textoDispositivos, ArquivoDisp, false);
+    JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
+    JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+
+    for (int i = 0; i < dispEncontrados; i++)
+    {
+      JsonDocument deviceObj = devicesJSONArray[i];
+      Device device = jsonToDevice(deviceObj);
+
+      if (device.main)
+      {
+        UUID uuid;
+        devicesJSONArray[i]["id"] = uuid.toCharArray();
+        devicesJSONArray[i]["ip"] = WiFi.localIP().toString();
+
+        saveJsonToAFile(&devicesJSON, DevicesFile);
+
+        break;
+      }
+    }
   }
 
   WiFi.printDiag(Serial);
-  Serial.println(retorno);
+  Serial.println(baseUrl);
 
-  // Use ArduinoJson for JSON response
-  StaticJsonDocument<128> doc;
-  doc["baseUrl"] = retorno;
-  String json;
-  serializeJson(doc, json);
-  server.send(201, "application/json", json);
+  JsonDocument jsonResponse;
+  jsonResponse["baseUrl"] = baseUrl;
+
+  String response;
+  serializeJson(jsonResponse, response);
+  server.send(201, "application/json", response);
 }
 
 void finalizaConfig()
 {
-  JsonDocument settingsJSON = getJSONFromFile(&wifiScanResults, SettingsFile);
+  JsonDocument settingsJSON = getJSONFromFile(&settingsJSONResults, SettingsFile);
 
   settingsJSON["configured"] = true;
 
   saveJsonToAFile(&settingsJSON, SettingsFile);
 
-  server.send(200, "text/plain", "");
+  server.send(201, "application/json");
   delay(1000);
 
   ESP.restart();
@@ -506,7 +610,7 @@ void listDir(const char *dirname)
   }
 }
 
-String carregaArquivo(String caminho)
+String loadFile(String caminho)
 {
   File arquivo = LittleFS.open(caminho, "r");
   String response = "";
@@ -551,9 +655,9 @@ bool salvaArquivo(String textoNovo, String caminho, bool recarrega)
     arquivo.close();
 
     if (caminho == "/configs.txt")
-      textoConfig = carregaArquivo(SettingsFile);
+      textoConfig = loadFile(SettingsFile);
     // else if (caminho == "/dispositivos.txt") {
-    //   textoDispositivos = carregaArquivo(ArquivoDisp);
+    //   textoDispositivos = loadFile(DevicesFile);
     //   if (recarrega) {
     //     // Atualiza os textos globais
     //     dispEncontrados = qtdDispositivos(textoDispositivos);
@@ -561,7 +665,7 @@ bool salvaArquivo(String textoNovo, String caminho, bool recarrega)
     //   }
     // }
     // else if (caminho == "/alarmes.txt") {
-    //   textoAlarmes = carregaArquivo(ArquivoAlarmes);
+    //   textoAlarmes = loadFile(ArquivoAlarmes);
     //   if (recarrega) {
     //     // Atualiza os textos globais
     //     alarmesEncontrados = qtdDispositivos(textoAlarmes);
@@ -575,20 +679,6 @@ bool salvaArquivo(String textoNovo, String caminho, bool recarrega)
     Serial.println("Erro ao salvar o arquivo");
     return false;
   }
-}
-
-bool StringContains(String texto, String procura)
-{
-  int max = texto.length() - procura.length();
-  int tprocura = procura.length();
-
-  for (int i = 0; i <= max; i++)
-  {
-    if (texto.substring(i, i + tprocura) == procura)
-      return true;
-  }
-
-  return false;
 }
 
 int qtdDispositivos(String texto)
@@ -829,34 +919,111 @@ void novoDispositivo()
   idsDispositivos(textoDispositivos, &idsDips[0], dispEncontrados);
 
   int id = idsDips[dispEncontrados - 1].toInt() + 1;
-  novaId(id, textoDispositivos, ArquivoDisp, false);
-  novaConfiguracao("@nome" + String(id), nome, textoDispositivos, ArquivoDisp, false);
-  novaConfiguracao("@ip" + String(id), ip, textoDispositivos, ArquivoDisp, false);
-  novaConfiguracao("@ipfixo" + String(id), "0", textoDispositivos, ArquivoDisp, true);
+  novaId(id, textoDispositivos, DevicesFile, false);
+  novaConfiguracao("@nome" + String(id), nome, textoDispositivos, DevicesFile, false);
+  novaConfiguracao("@ip" + String(id), ip, textoDispositivos, DevicesFile, false);
+  novaConfiguracao("@ipfixo" + String(id), "0", textoDispositivos, DevicesFile, true);
 
   server.send(200, "text/plain", retorno); // Send web page
 }
 
+bool toBool(String s)
+{
+  s.toLowerCase();
+  return (s == "true" || s == "1");
+}
+
 void editarDispositivo()
 {
-  String id = server.arg("id");                       // Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
-  String novoNome = server.arg("nome");               // Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
-  String editaCompleto = server.arg("editacompleto"); // Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
-  String retorno = "0";
+  if (!server.hasArg("plain"))
+  {
+    JsonDocument doc;
 
-  if (editaCompleto == "1")
-  {
-    String novoIp = server.arg("ip");       // Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
-    String novoIpFixo = server.arg("fixo"); // Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
-    editaConfiguracao("@nome" + id, novoNome, textoDispositivos, ArquivoDisp, false);
-    editaConfiguracao("@ip" + id, novoIp, textoDispositivos, ArquivoDisp, false);
-    editaConfiguracao("@ipfixo" + id, novoIpFixo, textoDispositivos, ArquivoDisp, true);
+    doc["status"] = "error";
+    doc["message"] = "Body is required";
+
+    String out;
+
+    serializeJson(doc, out);
+
+    server.send(400, "application/json", out);
+
+    return;
   }
-  else
+
+  String body = server.arg("plain");
+  JsonDocument doc;
+
+  DeserializationError error = deserializeJson(doc, body);
+  if (error)
   {
-    editaConfiguracao("@nome" + id, novoNome, textoDispositivos, ArquivoDisp, true);
+    JsonDocument doc;
+
+    doc["status"] = "error";
+    doc["message"] = "Invalid JSON";
+
+    String out;
+
+    serializeJson(doc, out);
+
+    server.send(400, "application/json", out);
+
+    return;
   }
-  server.send(200, "text/plain", retorno); // Send web page
+
+  const String id = doc["id"] | "";
+  const String name = doc["name"] | "";
+  bool main = doc["main"] | false;
+  const String ip = doc["ip"] | "";
+
+  JsonDocument jsonResponse;
+  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
+  JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+
+  for (int i = 0; i < dispEncontrados; i++)
+  {
+    JsonDocument deviceObj = devicesJSONArray[i];
+    Device device = jsonToDevice(deviceObj);
+
+    if (main && device.main)
+    {
+      devicesJSONArray[i]["name"] = name;
+      device.name = name;
+
+      saveJsonToAFile(&devicesJSON, DevicesFile);
+      deviceToJSON(device, jsonResponse);
+
+      break;
+    }
+    else if (device.id == id)
+    {
+      devicesJSONArray[i]["name"] = name;
+      device.name = name;
+
+      if (device.main != main)
+      {
+        devicesJSONArray[i]["ip"] = ip;
+        device.ip = ip;
+      }
+
+      saveJsonToAFile(&devicesJSON, DevicesFile);
+      deviceToJSON(device, jsonResponse);
+
+      break;
+    }
+  }
+
+  serializeJson(jsonResponse, Serial);
+  Serial.println();
+
+  const String response = [&]()
+  {
+    String out;
+    serializeJson(jsonResponse, out);
+    return out;
+  }();
+
+  server.send(200, "application/json", response);
 }
 
 void excluirDispositivo()
@@ -864,10 +1031,10 @@ void excluirDispositivo()
   String id = server.arg("id"); // Refer  xhttp.open("GET", "setLED?estadoAtual="+led, true);
   String retorno = "0";
 
-  excluiConfiguracao("@id" + id, textoDispositivos, ArquivoDisp, false);
-  excluiConfiguracao("@nome" + id, textoDispositivos, ArquivoDisp, false);
-  excluiConfiguracao("@ip" + id, textoDispositivos, ArquivoDisp, false);
-  excluiConfiguracao("@ipfixo" + id, textoDispositivos, ArquivoDisp, true);
+  excluiConfiguracao("@id" + id, textoDispositivos, DevicesFile, false);
+  excluiConfiguracao("@nome" + id, textoDispositivos, DevicesFile, false);
+  excluiConfiguracao("@ip" + id, textoDispositivos, DevicesFile, false);
+  excluiConfiguracao("@ipfixo" + id, textoDispositivos, DevicesFile, true);
 
   server.send(200, "text/plain", retorno); // Send web page
 }

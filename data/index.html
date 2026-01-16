@@ -108,7 +108,7 @@
                     </div>
 
                     <div id="modal_footer_excluir" class="modal-footer">
-                        <div class="btn-group">
+                        <div id="editarDispBtns" class="btn-group">
                             <button type="button" class="btn btn-info btn-sm" onclick="editarDisp()">Salvar</button>
                             <button type="button" id="btExcluir" class="btn btn-danger btn-sm" onclick="excluirConfirma()">Excluir</button>
                             <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
@@ -119,6 +119,9 @@
                                 <button type="button" id="btExcluirSim" class="btn btn-danger btn-sm" onclick="excluirSim()">Sim</button>
                                 <button type="button" id="btExcluirNao" class="btn btn-info btn-sm" onclick="excluirNao()">Não</button>
                             </div>
+                        </div>
+                        <div id="editarDispAguarde" class="spinner-border text-info" style="display:none" role="status">
+                            <span class="sr-only">Aguarde...</span>
                         </div>
                     </div>
                 </div>
@@ -163,9 +166,13 @@
                     </div>
 
                     <div class="modal-footer">
-                        <div class="btn-group">
+                        <div id="novoDispBtns" class="btn-group">
                             <button type="button" class="btn btn-info btn-sm" onclick="novoDisp()">Salvar</button>
                             <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
+                        </div>
+
+                        <div id="novoDispAguarde" class="spinner-border text-info" style="display:none" role="status">
+                            <span class="sr-only">Aguarde...</span>
                         </div>
                     </div>
                 </form>
@@ -198,27 +205,25 @@
     </div>
 
     <script>
-        //document.getElementById('ipFixo').onchange = function () {
-        //    if (this.selectedIndex == "0")
-        //        document.getElementById("ipDisp").disabled = true;
-        //    else
-        //        document.getElementById("ipDisp").disabled = false;
-        //}
-
         $('[data-toggle="tooltip"]').tooltip();
 
         $('#modalEditar').on('show.bs.modal', function (event) {
-            var button = $(event.relatedTarget) // Button that triggered the modal
+            var button = $(event.relatedTarget)
             var id = button.data('id')
-            var nome = button.data('nome') // Extract info from data-* attributes
+            var nome = button.data('nome')
             var ip = button.data('ip')
-            // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
-            // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+            var main = button.data('main');
 
             document.getElementById("idDisp").value = id
             document.getElementById("nomeDisp").value = nome
             document.getElementById("ipDisp").value = ip
             document.getElementById("divExcluir").style.display = "none";
+
+            if (main === false || main === "false" || main === 0 || main === "0") {
+                document.getElementById("ipDisp").disabled = false;
+            } else {
+                document.getElementById("ipDisp").disabled = true;
+            }
 
             if (id == "0")
                 document.getElementById("btExcluir").disabled = true;
@@ -227,13 +232,11 @@
         })
 
         $('#modalAlarmes').on('show.bs.modal', function (event) {
-            var button = $(event.relatedTarget) // Button that triggered the modal
-            var id = button.data('id')
-            var nome = button.data('nome') // Extract info from data-* attributes
-            // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
-            // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+            var button = $(event.relatedTarget);
+            var id = button.data('id');
+            var nome = button.data('nome');
             
-            document.getElementById("nomeDispAlarme").innerHTML = nome
+            document.getElementById("nomeDispAlarme").innerHTML = nome;
             procuraAlarmes(id);
         })
     </script>

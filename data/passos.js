@@ -5,11 +5,10 @@ async function dispPrimeiroAcesso() {
     document.getElementById("nomeDispAguarde").style.display = "inline-block";
 
     var body = {
-      main: true,
       name,
     };
 
-    await fetch("/device", {
+    const response = await fetch("/first-setting/device", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -17,10 +16,17 @@ async function dispPrimeiroAcesso() {
       body: JSON.stringify(body),
     });
 
-    document.getElementById("nomeDispAguarde").style.display = "none";
-    document.getElementById("salvoAviso").innerHTML = "Salvo com sucesso!";
-    document.getElementById("collapseOne").className = "collapse";
-    document.getElementById("collapseTwo").className = "collapse show";
+    if (!response.ok) {
+      document.getElementById("nomeDispAguarde").style.display = "none";
+      document.getElementById("salvoAviso").innerHTML = "Salvo com sucesso!";
+      document.getElementById("collapseOne").className = "collapse";
+      document.getElementById("collapseTwo").className = "collapse show";
+    } else {
+      const data = await response.json();
+
+      document.getElementById("nomeDispAguarde").style.display = "none";
+      alert("Erro ao editar dispositivo: " + data?.message);
+    }
   } catch (error) {
     document.getElementById("nomeDispAguarde").style.display = "none";
     alert("Erro ao editar dispositivo: " + error);
@@ -39,6 +45,14 @@ async function procuraRedes() {
     document.getElementById("redesDispAguarde").style.display = "none";
 
     const data = await response.json();
+
+    if (!response.ok || response.status !== 201) {
+      document.getElementById("redesDispAguarde").style.display = "none";
+      alert("Erro ao recuperar informações: " + data?.message);
+
+      return;
+    }
+
     listaRedes({ data });
   } catch (error) {
     document.getElementById("redesDispAguarde").style.display = "none";

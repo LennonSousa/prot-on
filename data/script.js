@@ -78,6 +78,7 @@ function criaListaDisp(dispositivosJson) {
     btnVarios02.setAttribute("data-id", dispositivo.id);
     btnVarios02.setAttribute("data-nome", dispositivo.name);
     btnVarios02.setAttribute("data-ip", dispositivo.ip);
+    btnVarios02.setAttribute("data-main", dispositivo.main);
 
     var spanVarios01 = document.createElement("span");
     spanVarios01.className = "oi oi-timer";
@@ -108,7 +109,7 @@ function criaListaDisp(dispositivosJson) {
       btn.className = "btn btn-dark";
     } else if (dispositivo.status == "1") {
       btn.className = "btn btn-warning";
-    } else if (dispositivo.status == "n/a") {
+    } else if (dispositivo.status == "error") {
       btn.className = "btn btn-outline-dark";
       btn.disabled = true;
       spanBotaoEstado.className = "oi oi-question-mark";
@@ -131,40 +132,82 @@ function criaListaDisp(dispositivosJson) {
 
 // Adicionar um dispositivo
 async function novoDisp() {
-  var nome = document.getElementById("nomeNovoDisp").value;
-  var ip = document.getElementById("ipNovoDisp").value;
   try {
-    const response = await fetch(
-      `novodisp?nome=${encodeURIComponent(nome)}&ip=${encodeURIComponent(ip)}`,
-      {
-        method: "GET",
-      }
-    );
+    document.getElementById("novoDispBtns").style.display = "none";
+    document.getElementById("novoDispAguarde").style.display = "inline-block";
+
+    var name = document.getElementById("nomeNovoDisp").value;
+    var ip = document.getElementById("ipNovoDisp").value;
+
+    var body = {
+      name,
+      ip,
+    };
+
+    const response = await fetch("/device", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
     if (response.ok) {
       location.reload();
+    } else {
+      const data = await response.json();
+
+      document.getElementById("novoDispBtns").style.display = "inline-block";
+      document.getElementById("novoDispAguarde").style.display = "none";
+
+      alert("Erro ao criar dispositivo: " + data?.message);
     }
   } catch (error) {
+    document.getElementById("novoDispBtns").style.display = "inline-block";
+    document.getElementById("novoDispAguarde").style.display = "none";
+
     alert("Erro ao adicionar dispositivo: " + error);
   }
 }
 
 // Editar um dispositivo
 async function editarDisp() {
+  document.getElementById("divExcluir").style.display = "none";
+  document.getElementById("editarDispBtns").style.display = "none";
+  document.getElementById("editarDispAguarde").style.display = "inline-block";
+
   var id = document.getElementById("idDisp").value;
-  var nome = document.getElementById("nomeDisp").value;
+  var name = document.getElementById("nomeDisp").value;
+  var ip = document.getElementById("ipDisp").value;
+
+  var body = {
+    name,
+    ip,
+  };
+
   try {
-    const response = await fetch(
-      `editadisp?id=${encodeURIComponent(id)}&nome=${encodeURIComponent(
-        nome
-      )}&editacompleto=0`,
-      {
-        method: "GET",
-      }
-    );
+    const response = await fetch(`device?id=${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
     if (response.ok) {
       location.reload();
+    } else {
+      const data = await response.json();
+
+      document.getElementById("editarDispBtns").style.display = "inline-block";
+      document.getElementById("editarDispAguarde").style.display = "none";
+
+      alert("Erro ao editar dispositivo: " + data?.message);
     }
   } catch (error) {
+    document.getElementById("editarDispBtns").style.display = "inline-block";
+    document.getElementById("editarDispAguarde").style.display = "none";
+
     alert("Erro ao editar dispositivo: " + error);
   }
 }
@@ -174,15 +217,31 @@ function excluirConfirma() {
 }
 
 async function excluirSim() {
-  var id = document.getElementById("idDisp").value;
   try {
-    const response = await fetch(`excluidisp?id=${encodeURIComponent(id)}`, {
-      method: "GET",
+    document.getElementById("divExcluir").style.display = "none";
+    document.getElementById("editarDispBtns").style.display = "none";
+    document.getElementById("editarDispAguarde").style.display = "inline-block";
+
+    var id = document.getElementById("idDisp").value;
+
+    const response = await fetch(`device?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
     });
+
     if (response.ok) {
       location.reload();
+    } else {
+      const data = await response.json();
+
+      document.getElementById("editarDispBtns").style.display = "inline-block";
+      document.getElementById("editarDispAguarde").style.display = "none";
+
+      alert("Erro ao excluir dispositivo: " + data?.message);
     }
   } catch (error) {
+    document.getElementById("editarDispBtns").style.display = "inline-block";
+    document.getElementById("editarDispAguarde").style.display = "none";
+
     alert("Erro ao excluir dispositivo: " + error);
   }
 }
@@ -204,7 +263,7 @@ async function sendData(btn, id) {
         modificaPara
       )}`,
       {
-        method: "POST",
+        method: "PUT",
       }
     );
 

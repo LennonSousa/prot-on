@@ -237,6 +237,7 @@ void setup()
   server.on("/", HTTP_GET, inicio);
 
   // First Settings
+  server.on("/first-setting/device", HTTP_PUT, editDevice);
   server.on("/first-setting/finish", HTTP_POST, finalizaConfig);
 
   // Wireless
@@ -249,13 +250,12 @@ void setup()
   // server.on("/excluialarme", excluirAlarme);
 
   // Device
-  server.on("/status", HTTP_GET, statusLocal);
+  server.on("/device", HTTP_POST, createDevice);
   server.on("/device", HTTP_GET, listDevices);
-  server.on("/device/status", HTTP_POST, changeDeviceStatus);
   server.on("/device", HTTP_PUT, editDevice);
+  server.on("/device", HTTP_DELETE, deleteDevice);
+  server.on("/device/status", HTTP_PUT, changeDeviceStatus);
 
-  server.on("/novodisp", novoDispositivo);
-  server.on("/excluidisp", excluirDispositivo);
   server.onNotFound(handleWebRequests); // Set setver all paths are not found so we can handle as per URI
 
   server.begin();
@@ -302,14 +302,6 @@ void inicio()
   server.send(302, "text/plain", "");
 }
 
-void statusLocal()
-{
-  if (digitalRead(localPort) == LOW)
-    server.send(200, "application/json", "{\"status\":0}");
-  else
-    server.send(200, "application/json", "{\"status\":1}");
-}
-
 void listDevices()
 {
   JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
@@ -323,6 +315,10 @@ void listDevices()
     if (device.main)
     {
       devicesJSONArray[i]["status"] = digitalRead(localPort) == LOW ? "0" : "1";
+    }
+    else
+    {
+      devicesJSONArray[i]["status"] = "error"; // TODO: Default status for non-main devices
     }
   }
 
@@ -346,7 +342,6 @@ void changeDeviceStatus()
     return BadRequestError("Id and status are required");
   }
 
-  String currentStatus = "";
   String id = server.arg("id");
   String newStatus = server.arg("status");
 
@@ -359,22 +354,32 @@ void changeDeviceStatus()
     JsonDocument deviceObj = devicesJSONArray[i];
     Device device = jsonToDevice(deviceObj);
 
-    if (device.id == id && device.main)
+    if (device.id == id)
     {
-      if (newStatus == "0")
+      if (device.main)
       {
-        digitalWrite(localPort, LOW); // LED ON
-        deviceObj["status"] = "0";    // Feedback parameter
+        if (newStatus == "0")
+        {
+          digitalWrite(localPort, LOW); // LED ON
+          deviceObj["status"] = "0";    // Feedback parameter
+        }
+        else
+        {
+          digitalWrite(localPort, HIGH); // LED OFF
+          deviceObj["status"] = "1";     // Feedback parameter
+        }
+
+        jsonResponse = deviceObj;
+
+        break;
       }
       else
       {
-        digitalWrite(localPort, HIGH); // LED OFF
-        deviceObj["status"] = "1";     // Feedback parameter
+        deviceObj["status"] = "error"; // TODO: Default feedback for non-main devices
+        jsonResponse = deviceObj;
+
+        break;
       }
-
-      jsonResponse = deviceObj;
-
-      break;
     }
   }
 
@@ -707,29 +712,13 @@ bool loadFromSpiffs(String path)
   return true;
 }
 
-void novoDispositivo()
+void createDevice()
 {
-  String nome = server.arg("nome"); // Refer  xhttp.open("GET", "setLED?currentStatus="+led, true);
-  String ip = server.arg("ip");     // Refer  xhttp.open("GET", "setLED?currentStatus="+led, true);
-  String retorno = "0";
-  Serial.println("Nome e Ip: ");
-  Serial.println(nome);
-  Serial.println(ip);
+  if (dispEncontrados >= MAX_QTD_DISP)
+  {
+    return BadRequestError("Maximum number of devices reached");
+  }
 
-  String idsDips[dispEncontrados];
-  // idsDispositivos(textoDispositivos, &idsDips[0], dispEncontrados);
-
-  int id = idsDips[dispEncontrados - 1].toInt() + 1;
-  // novaId(id, textoDispositivos, DevicesFile, false);
-  // novaConfiguracao("@nome" + String(id), nome, textoDispositivos, DevicesFile, false);
-  // novaConfiguracao("@ip" + String(id), ip, textoDispositivos, DevicesFile, false);
-  // novaConfiguracao("@ipfixo" + String(id), "0", textoDispositivos, DevicesFile, true);
-
-  server.send(200, "text/plain", retorno); // Send web page
-}
-
-void editDevice()
-{
   if (!server.hasArg("plain"))
   {
     return BadRequestError("Body is required");
@@ -744,11 +733,95 @@ void editDevice()
     return BadRequestError("Invalid JSON");
   }
 
-  const String id = doc["id"] | "";
-  const String name = doc["name"] | "";
-  bool main = doc["main"] | false;
-  const String ip = doc["ip"] | "";
+  const String name = doc["name"];
+  const String ip = doc["ip"];
 
+  const bool nameProvided = doc.containsKey("name") && !doc["name"].isNull() && name.length() > 0;
+  const bool ipProvided = doc.containsKey("ip") && !doc["ip"].isNull() && ip.length() > 0;
+
+  if (!nameProvided || !ipProvided)
+  {
+    return BadRequestError("Name and IP are required");
+  }
+
+  IPAddress ipAddr;
+  if (!ipAddr.fromString(ip))
+  {
+    return BadRequestError("Invalid IP format");
+  }
+
+  JsonDocument jsonResponse;
+  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
+  JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+
+  UUID uuid;
+  JsonDocument newDeviceObj;
+
+  newDeviceObj["id"] = uuid.toCharArray();
+  newDeviceObj["name"] = name;
+  newDeviceObj["ip"] = ip;
+  newDeviceObj["main"] = false;
+
+  devicesJSONArray.add(newDeviceObj);
+
+  dispEncontrados++;
+
+  saveJsonToAFile(&devicesJSON, DevicesFile);
+  deviceToJSON(jsonToDevice(newDeviceObj), jsonResponse);
+
+  serializeJson(jsonResponse, Serial);
+  Serial.println();
+
+  const String response = [&]()
+  {
+    String out;
+    serializeJson(jsonResponse, out);
+    return out;
+  }();
+
+  server.send(201, "application/json", response);
+}
+
+void editDevice()
+{
+  if (settings.configured && !server.hasArg("id"))
+  {
+    return BadRequestError("Id is required");
+  }
+
+  if (!server.hasArg("plain"))
+  {
+    return BadRequestError("Body is required");
+  }
+
+  String body = server.arg("plain");
+  JsonDocument doc;
+
+  DeserializationError error = deserializeJson(doc, body);
+  if (error)
+  {
+    return BadRequestError("Invalid JSON");
+  }
+
+  String id = server.arg("id");
+  const String name = doc["name"];
+  const String ip = doc["ip"];
+
+  const bool nameProvided = doc.containsKey("name") && !doc["name"].isNull() && name.length() > 0;
+  const bool ipProvided = doc.containsKey("ip") && !doc["ip"].isNull() && ip.length() > 0;
+
+  if (!nameProvided)
+  {
+    return BadRequestError("Name is required");
+  }
+
+  IPAddress ipAddr;
+  if (ipProvided && !ipAddr.fromString(ip))
+  {
+    return BadRequestError("Invalid IP format");
+  }
+
+  bool found = false;
   JsonDocument jsonResponse;
   JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
   JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
@@ -758,22 +831,26 @@ void editDevice()
     JsonDocument deviceObj = devicesJSONArray[i];
     Device device = jsonToDevice(deviceObj);
 
-    if (main && device.main)
+    if (!settings.configured && device.main)
     {
       devicesJSONArray[i]["name"] = name;
       device.name = name;
 
       saveJsonToAFile(&devicesJSON, DevicesFile);
       deviceToJSON(device, jsonResponse);
+      found = true;
 
       break;
     }
     else if (device.id == id)
     {
-      devicesJSONArray[i]["name"] = name;
-      device.name = name;
+      if (nameProvided)
+      {
+        devicesJSONArray[i]["name"] = name;
+        device.name = name;
+      }
 
-      if (device.main != main)
+      if (ipProvided && !device.main)
       {
         devicesJSONArray[i]["ip"] = ip;
         device.ip = ip;
@@ -781,9 +858,15 @@ void editDevice()
 
       saveJsonToAFile(&devicesJSON, DevicesFile);
       deviceToJSON(device, jsonResponse);
+      found = true;
 
       break;
     }
+  }
+
+  if (!found)
+  {
+    return BadRequestError("Device not found");
   }
 
   serializeJson(jsonResponse, Serial);
@@ -799,17 +882,44 @@ void editDevice()
   server.send(200, "application/json", response);
 }
 
-void excluirDispositivo()
+void deleteDevice()
 {
-  String id = server.arg("id"); // Refer  xhttp.open("GET", "setLED?currentStatus="+led, true);
-  String retorno = "0";
+  if (!server.hasArg("id"))
+  {
+    return BadRequestError("Id is required");
+  }
 
-  // excluiConfiguracao("@id" + id, textoDispositivos, DevicesFile, false);
-  // excluiConfiguracao("@nome" + id, textoDispositivos, DevicesFile, false);
-  // excluiConfiguracao("@ip" + id, textoDispositivos, DevicesFile, false);
-  // excluiConfiguracao("@ipfixo" + id, textoDispositivos, DevicesFile, true);
+  String id = server.arg("id");
+  bool found = false;
+  JsonDocument jsonResponse;
+  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
+  JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
 
-  server.send(200, "text/plain", retorno); // Send web page
+  for (int i = 0; i < dispEncontrados; i++)
+  {
+    JsonDocument deviceObj = devicesJSONArray[i];
+    Device device = jsonToDevice(deviceObj);
+
+    if (device.id == id && !device.main)
+    {
+      devicesJSONArray.remove(i);
+      dispEncontrados--;
+
+      saveJsonToAFile(&devicesJSON, DevicesFile);
+      found = true;
+
+      break;
+    }
+  }
+
+  if (found)
+  {
+    server.send(204, "application/json");
+  }
+  else
+  {
+    return BadRequestError("Device not found or is main device");
+  }
 }
 
 void BadRequestError(String message)

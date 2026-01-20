@@ -1,10 +1,26 @@
 /*
-    This sketch demonstrates how to set up a simple HTTP-like server.
-    The server will set a GPIO pin depending on the request
-      http://server_ip/gpio/0 will set the GPIO2 low,
-      http://server_ip/gpio/1 will set the GPIO2 high
-    server_ip is the IP address of the ESP8266 module, will be
-    printed to Serial when the module is connected.
+  Prot-On — ESP8266 Automation Controller
+
+  Overview
+  - Hosts an HTTP API and static UI (LittleFS) for device management.
+  - Manages devices and schedules stored in JSON files.
+  - Uses NTP to keep time for scheduled actions.
+
+  Key Endpoints
+  - GET  /device            List devices
+  - POST /device            Create device
+  - PUT  /device            Edit device
+  - DELETE /device          Delete device
+  - PUT  /device/status     Change device status
+  - GET  /schedule          List schedules (filtered by deviceId)
+  - POST /schedule          Create schedule
+  - PUT  /schedule          Edit schedule
+  - DELETE /schedule        Delete schedule
+
+  Files (LittleFS)
+  - /settings.json  Wi-Fi and setup configuration
+  - /devices.json   Registered devices
+  - /schedules.json Automation schedules
 */
 
 #include <ESP8266WiFi.h>

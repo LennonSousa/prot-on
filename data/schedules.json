@@ -1,13 +1,1 @@
-{
-  "data": [
-    {
-      "id": "0",
-      "name": "Ligar arandelas",
-      "deviceId": "0",
-      "hour": "16",
-      "minute": "30",
-      "action": "1",
-      "active": true
-    }
-  ]
-}
+[]

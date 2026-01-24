@@ -192,6 +192,9 @@
                 </div>
 
                 <div class="modal-body">
+                    <div class="mb-2">
+                        <button id="btnNovoAlarme" class="btn btn-info btn-sm" data-toggle="modal" data-target="#modalNovoAlarme">Novo</button>
+                    </div>
                     <section id="sessao_alarmes" class="container textos-linha"></section>
                 </div>
 
@@ -203,6 +206,69 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal novo alarme -->
+    <div class="modal fade" id="modalNovoAlarme" tabindex="-1" role="dialog" aria-labelledby="modalNovoAlarmeLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="nomeNovoDispAlarme">Novo alarme - <span id="nomeDispNovoAlarme"></span></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <form>
+                    <div class="modal-body">
+                        <input type="hidden" id="deviceIdNovo" value="">
+
+                        <div class="form-group">
+                            <label for="nomeNovoAlarme" class="col-form-label">Nome do alarme</label>
+                            <input type="text" class="form-control" id="nomeNovoAlarme" placeholder="Nome*" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="selectHoraNovo">Hora</label>
+                                <select id="selectHoraNovo" class="form-control"></select>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="selectMinutoNovo">Minuto</label>
+                                <select id="selectMinutoNovo" class="form-control"></select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="selectAcaoNovo">Ação</label>
+                            <select id="selectAcaoNovo" class="form-control">
+                                <option value="0">Desligar</option>
+                                <option value="1">Ligar</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="selectAtivoNovo">Estado</label>
+                            <select id="selectAtivoNovo" class="form-control">
+                                <option value="0">Desativado</option>
+                                <option value="1">Ativado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <div id="novoAlarmeBtns" class="btn-group">
+                            <button type="button" class="btn btn-info btn-sm" onclick="novoAlarme()">Salvar</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
+                        </div>
+
+                        <div id="novoAlarmeAguarde" class="spinner-border text-info" style="display:none" role="status">
+                            <span class="sr-only">Aguarde...</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div> 
 
     <script>
         $('[data-toggle="tooltip"]').tooltip();
@@ -233,12 +299,85 @@
 
         $('#modalAlarmes').on('show.bs.modal', function (event) {
             var button = $(event.relatedTarget);
-            var id = button.data('id');
-            var nome = button.data('nome');
-            
-            document.getElementById("nomeDispAlarme").innerHTML = nome;
-            procuraAlarmes(id);
+            var id = (button && button.data('id')) ? button.data('id') : $(this).data('id');
+            var nome = (button && button.data('nome')) ? button.data('nome') : $(this).data('nome');
+
+            document.getElementById("nomeDispAlarme").innerHTML = nome || '';
+            if (id) procuraAlarmes(id);
+
+            var btnNovo = document.getElementById("btnNovoAlarme");
+            if (btnNovo) {
+                btnNovo.setAttribute('data-id', id);
+                btnNovo.setAttribute('data-nome', nome);
+                $(btnNovo).data('id', id);
+                $(btnNovo).data('nome', nome);
+
+                $(btnNovo).off('click.closeAlarmes').on('click.closeAlarmes', function () {
+                    $('#modalAlarmes').modal('hide');
+                });
+            }
         })
+
+        $('#modalNovoAlarme').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget);
+            var id = (button && button.data('id')) ? button.data('id') : $(this).data('id') || $('#btnNovoAlarme').data('id');
+            var nome = (button && button.data('nome')) ? button.data('nome') : $(this).data('nome') || $('#btnNovoAlarme').data('nome');
+            document.getElementById("deviceIdNovo").value = id;
+            document.getElementById("nomeDispNovoAlarme").innerHTML = nome || '';
+
+            var nomeInput = document.getElementById("nomeNovoAlarme");
+            if (nomeInput) { nomeInput.value = ""; }
+
+            $('#modalAlarmes').modal('hide');
+
+            var selectHora = document.getElementById("selectHoraNovo");
+            if (selectHora.options.length == 0) {
+                for (var x = 0; x <= 23; x++) {
+                    var optionHora = document.createElement("option");
+                    optionHora.innerHTML = x;
+                    optionHora.value = x;
+                    selectHora.appendChild(optionHora);
+                }
+            }
+            var selectMinuto = document.getElementById("selectMinutoNovo");
+            if (selectMinuto.options.length == 0) {
+                for (var y = 0; y <= 59; y++) {
+                    var optionMinuto = document.createElement("option");
+                    optionMinuto.innerHTML = y;
+                    optionMinuto.value = y;
+                    selectMinuto.appendChild(optionMinuto);
+                }
+            }
+            document.getElementById("selectHoraNovo").selectedIndex = 0;
+            document.getElementById("selectMinutoNovo").selectedIndex = 0;
+            document.getElementById("selectAcaoNovo").selectedIndex = 0;
+            document.getElementById("selectAtivoNovo").selectedIndex = 1;
+        })
+
+        $('#modalNovoAlarme').on('shown.bs.modal', function (event) {
+            var nomeInput = document.getElementById("nomeNovoAlarme");
+            if (nomeInput) {
+                nomeInput.focus();
+            }
+        });
     </script>
+
+    <!-- Toast container -->
+    <div aria-live="polite" aria-atomic="true" style="position: fixed; top: 1rem; right: 1rem; z-index: 1060;">
+        <div id="toastContainer">
+            <div id="toastAlarme" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="2000">
+                <div class="toast-header">
+                    <strong class="mr-auto">Prot-On</strong>
+                    <small class="text-muted">agora</small>
+                    <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Fechar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="toast-body">
+                    Alarme criado com sucesso.
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

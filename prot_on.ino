@@ -1,10 +1,26 @@
 /*
-    This sketch demonstrates how to set up a simple HTTP-like server.
-    The server will set a GPIO pin depending on the request
-      http://server_ip/gpio/0 will set the GPIO2 low,
-      http://server_ip/gpio/1 will set the GPIO2 high
-    server_ip is the IP address of the ESP8266 module, will be
-    printed to Serial when the module is connected.
+  Prot-On — ESP8266 Automation Controller
+
+  Overview
+  - Hosts an HTTP API and static UI (LittleFS) for device management.
+  - Manages devices and schedules stored in JSON files.
+  - Uses NTP to keep time for scheduled actions.
+
+  Key Endpoints
+  - GET  /device            List devices
+  - POST /device            Create device
+  - PUT  /device            Edit device
+  - DELETE /device          Delete device
+  - PUT  /device/status     Change device status
+  - GET  /schedule          List schedules (filtered by deviceId)
+  - POST /schedule          Create schedule
+  - PUT  /schedule          Edit schedule
+  - DELETE /schedule        Delete schedule
+
+  Files (LittleFS)
+  - /settings.json  Wi-Fi and setup configuration
+  - /devices.json   Registered devices
+  - /schedules.json Automation schedules
 */
 
 #include <ESP8266WiFi.h>
@@ -18,19 +34,22 @@
 
 // define números de pinos
 const int localPort = LED_BUILTIN; // GPIO2
-int dispEncontrados;
-int alarmesEncontrados;
+int devicesFound;
+int schedulesFound;
 const char *imagefile = "/image.png";
 const char *htmlfile = "/index.html";
+
 JsonDocument wifiScanResults;
 JsonDocument settingsJSONResults;
 JsonDocument devicesJSONResults;
+JsonDocument schedulesJSONResults;
 
 #define SettingsFile "/settings.json"
 #define DevicesFile "/devices.json"
-#define ArquivoAlarmes "/schedules.json"
+#define SchedulesFile "/schedules.json"
 #define WifiScanResutsFile "/wifi_scan_results.json"
 
+#define MAX_CONNECTION_ATTEMPTS 30
 #define MAX_QTD_DISP 32
 #define MAX_QTD_ALARMES 64
 #define MAX_SSID_AMOUNT 10
@@ -52,9 +71,9 @@ typedef struct
 
 typedef struct
 {
-  UUID id;
+  String id;
   String name;
-  UUID deviceId;
+  String deviceId;
   String hour;
   String minute;
   String action;
@@ -69,22 +88,46 @@ typedef struct
 } SSID;
 
 Setting settings;
-Device devices[MAX_QTD_DISP];
-Schedule schedules[MAX_QTD_ALARMES];
-SSID ssidsFound[MAX_SSID_AMOUNT];
 
-// Variável para informar se o dispositivo já foi configurado
-String textoConfig;
-String textoDispositivos;
-String textoAlarmes;
-byte actualMinute = 1;
-byte minutoCompara = 0;
+// Last time (millis) when we checked alarms to avoid checking every loop
+unsigned long lastAlarmCheckMillis = 0;
 
 ESP8266WebServer server(80);
 
 char ntpServer[] = "br.pool.ntp.org";
 SNTPtime NTPch(ntpServer);
 strDateTime dateTime;
+// Enable to print parsed JSON for debugging
+const bool DEBUG_JSON = false;
+
+// Helpers to load/save the in-memory documents
+void loadDevicesFromFile()
+{
+  getJSONFromFile(&devicesJSONResults, DevicesFile);
+  JsonArray arr = devicesJSONResults.as<JsonArray>();
+  devicesFound = arr.size();
+}
+
+void saveDevicesToFile()
+{
+  saveJsonToAFile(&devicesJSONResults, DevicesFile);
+  JsonArray arr = devicesJSONResults.as<JsonArray>();
+  devicesFound = arr.size();
+}
+
+void loadSchedulesFromFile()
+{
+  getJSONFromFile(&schedulesJSONResults, SchedulesFile);
+  JsonArray arr = schedulesJSONResults.as<JsonArray>();
+  schedulesFound = arr.size();
+}
+
+void saveSchedulesToFile()
+{
+  saveJsonToAFile(&schedulesJSONResults, SchedulesFile);
+  JsonArray arr = schedulesJSONResults.as<JsonArray>();
+  schedulesFound = arr.size();
+}
 
 JsonDocument getJSONFromFile(JsonDocument *doc, String fileName)
 {
@@ -97,23 +140,32 @@ JsonDocument getJSONFromFile(JsonDocument *doc, String fileName)
     if (error)
     {
       // if the file didn't open, print an error:
-      Serial.print(F("Error parsing JSON "));
-      Serial.println(error.c_str());
+      if (DEBUG_JSON)
+      {
+        Serial.print(F("Error parsing JSON "));
+        Serial.println(error.c_str());
+      }
 
       return doc->to<JsonObject>();
     }
 
-    serializeJson(*doc, Serial);
-    Serial.println();
+    if (DEBUG_JSON)
+    {
+      serializeJson(*doc, Serial);
+      Serial.println();
+    }
 
     return *doc;
   }
   else
   {
-    Serial.print(F("Error opening (or file not exists) "));
-    Serial.println(fileName);
+    if (DEBUG_JSON)
+    {
+      Serial.print(F("Error opening (or file not exists) "));
+      Serial.println(fileName);
 
-    Serial.println(F("Empty json returned"));
+      Serial.println(F("Empty json returned"));
+    }
 
     return doc->to<JsonObject>();
   }
@@ -142,6 +194,21 @@ Device jsonToDevice(JsonDocument &obj)
   return deviceResponse;
 }
 
+Schedule jsonToSchedule(JsonVariantConst obj)
+{
+  Schedule scheduleResponse;
+
+  scheduleResponse.id = String(obj["id"] | "");
+  scheduleResponse.name = String(obj["name"] | "");
+  scheduleResponse.deviceId = String(obj["deviceId"] | "");
+  scheduleResponse.hour = String(obj["hour"] | "");
+  scheduleResponse.minute = String(obj["minute"] | "");
+  scheduleResponse.action = String(obj["action"] | "");
+  scheduleResponse.active = obj["active"] | true;
+
+  return scheduleResponse;
+}
+
 void deviceToJSON(const Device &device, JsonDocument &obj)
 {
   obj["id"] = device.id;
@@ -150,15 +217,59 @@ void deviceToJSON(const Device &device, JsonDocument &obj)
   obj["main"] = device.main;
 }
 
-void jsonToDevices(JsonArray arr, Device *devices, int maxDevices)
+// Returns index of the device with given id in the provided JsonArray, or -1 if not found
+int findDeviceIndexById(JsonArray devicesJSONArray, const String &id)
 {
-  int i = 0;
-  for (JsonDocument obj : arr)
+  for (size_t i = 0; i < devicesJSONArray.size(); ++i)
   {
-    if (i >= maxDevices)
-      break;
-    devices[i] = jsonToDevice(obj);
-    i++;
+    JsonObject dev = devicesJSONArray[i].as<JsonObject>();
+    String did = String(dev["id"] | "");
+    if (did == id)
+      return (int)i;
+  }
+  return -1;
+}
+
+void setupWiFiGotIPHandler()
+{
+  // Espera enquanto não conecta ao roteador
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < MAX_CONNECTION_ATTEMPTS)
+  {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+
+  // Configurações da rede
+  // IPAddress ip;
+  // IPAddress gateway;
+  // IPAddress subnet;
+  // ip.fromString(IP);
+  // gateway.fromString(GATEWAY);
+  // subnet.fromString(SUBNET);
+
+  // Serial.println(ip);
+
+  // Envia para o roteador as configurações que queremos para o ESP
+  // WiFi.config(ip, gateway, subnet);
+  if (attempts < MAX_CONNECTION_ATTEMPTS)
+  {
+    Serial.println(WiFi.localIP());
+    Serial.println("");
+    Serial.println("Conectado");
+
+    while (!NTPch.setSNTPtime())
+    {
+      Serial.print(".");
+    }
+
+    Serial.println();
+    Serial.println("Hora ajustada");
+  }
+  else
+  {
+    Serial.println("Sem conexao");
   }
 }
 
@@ -174,21 +285,14 @@ void setup()
     return;
   }
 
-  JsonDocument settingsJSON = getJSONFromFile(&settingsJSONResults, SettingsFile);
-  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
+  // Load settings, devices and schedules into memory once
+  getJSONFromFile(&settingsJSONResults, SettingsFile);
+  loadDevicesFromFile();
+  loadSchedulesFromFile();
 
-  settings = jsonToSettings(settingsJSON);
-  jsonToDevices(devicesJSON.as<JsonArray>(), devices, MAX_QTD_DISP);
-
-  // textoDispositivos = loadFile(DevicesFile);
-  // textoAlarmes = loadFile(ArquivoAlarmes);
-
-  JsonArray arr = devicesJSON.as<JsonArray>();
-  dispEncontrados = arr.size();
+  settings = jsonToSettings(settingsJSONResults);
 
   pinMode(localPort, OUTPUT);
-
-  listDir("/");
 
   // Inicia o ponto de acesso se está configurado
   if (settings.configured)
@@ -207,6 +311,8 @@ void setup()
     WiFi.begin(settings.ssid, settings.password);
 
     Serial.println("Conectando (async)");
+
+    setupWiFiGotIPHandler();
   }
   else
   {
@@ -221,18 +327,6 @@ void setup()
     Serial.println(WiFi.softAP(ssid) ? "Ready" : "Failed!");
   }
 
-  WiFi.onStationModeGotIP([](const WiFiEventStationModeGotIP &evt)
-                          {
-    Serial.println("Conectado:");
-    Serial.println(WiFi.localIP());
-    // set NTP, save config, whatever (no blocking here)
-    if (NTPch.setSNTPtime()) {
-      Serial.println("Hora ajustada");
-    } else {
-      Serial.println("NTP not set now; will retry later");
-      // Option: set another flag to retry in a few seconds
-  } });
-
   // Initialize Webserver
   server.on("/", HTTP_GET, inicio);
 
@@ -244,17 +338,18 @@ void setup()
   server.on("/wireless", HTTP_GET, searchWireless);
   server.on("/wireless", HTTP_POST, connectWireless);
 
-  // server.on("/procuralarmes", procuraAlarmes);
-  // server.on("/novoalarme", novoAlarme);
-  // server.on("/editaalarme", editarAlarme);
-  // server.on("/excluialarme", excluirAlarme);
-
   // Device
   server.on("/device", HTTP_POST, createDevice);
   server.on("/device", HTTP_GET, listDevices);
   server.on("/device", HTTP_PUT, editDevice);
   server.on("/device", HTTP_DELETE, deleteDevice);
   server.on("/device/status", HTTP_PUT, changeDeviceStatus);
+
+  // Schedules
+  server.on("/schedule", HTTP_POST, createSchedule);
+  server.on("/schedule", HTTP_GET, listSchedules);
+  server.on("/schedule", HTTP_PUT, editSchedule);
+  server.on("/schedule", HTTP_DELETE, deleteSchedule);
 
   server.onNotFound(handleWebRequests); // Set setver all paths are not found so we can handle as per URI
 
@@ -264,23 +359,25 @@ void setup()
 void loop()
 {
   server.handleClient();
-  // dateTime = NTPch.getTime(-3, 0); // get time from internal clock
-  // actualMinute = dateTime.minute;
 
-  // if (actualMinute != minutoCompara) {
+  unsigned long now = millis();
+  // Check alarms at most once per minute (60000 ms)
+  if (now - lastAlarmCheckMillis >= 60001UL)
+  {
+    lastAlarmCheckMillis = now;
 
-  //   //NTPch.printDateTime(dateTime);
+    dateTime = NTPch.getTime(-3, 0); // get/refresh time once per minute
+    byte currentHour = dateTime.hour;
+    byte currentMinute = dateTime.minute;
 
-  //   byte actualHour = dateTime.hour;
-  //   byte diaDaSemana = dateTime.dayofWeek;
+    Serial.print("Checking alarms at: ");
+    Serial.print(currentHour);
+    Serial.print(":");
+    Serial.println(currentMinute);
 
-  //   //Serial.print("Minuto atual e minuto compara: ");
-  //   //Serial.println(actualMinute);
-  //   //Serial.println(minutoCompara);
-  //   //Serial.println(diaDaSemana);
-  //   checkForAlarm(actualHour, actualMinute);
-  //   minutoCompara = actualMinute;
-  // }
+    // Call alarm checker with current time
+    checkForAlarm(currentHour, currentMinute);
+  }
 }
 
 void inicio()
@@ -304,10 +401,9 @@ void inicio()
 
 void listDevices()
 {
-  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
-  JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+  JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
 
-  for (int i = 0; i < dispEncontrados; i++)
+  for (int i = 0; i < devicesFound; i++)
   {
     JsonDocument deviceObj = devicesJSONArray[i];
     Device device = jsonToDevice(deviceObj);
@@ -322,13 +418,85 @@ void listDevices()
     }
   }
 
-  serializeJson(devicesJSONArray, Serial);
-  Serial.println();
+  if (DEBUG_JSON)
+  {
+    serializeJson(devicesJSONArray, Serial);
+    Serial.println();
+  }
 
   const String response = [&]()
   {
     String out;
     serializeJson(devicesJSONArray, out);
+    return out;
+  }();
+
+  server.send(200, "application/json", response);
+}
+
+void listSchedules()
+{
+  if (!server.hasArg("deviceId"))
+  {
+    return BadRequestError("deviceId is required");
+  }
+  String filterDeviceId = server.arg("deviceId");
+
+  JsonArray schedulesJSONArray = schedulesJSONResults.as<JsonArray>();
+  JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
+
+  schedulesFound = schedulesJSONArray.size();
+
+  DynamicJsonDocument outDoc(2048);
+  JsonArray outArr = outDoc.to<JsonArray>();
+
+  for (size_t i = 0; i < schedulesJSONArray.size(); ++i)
+  {
+    JsonObject scheduleObj = schedulesJSONArray[i].as<JsonObject>();
+
+    String deviceId = String(scheduleObj["deviceId"] | "");
+    if (deviceId != filterDeviceId)
+      continue;
+
+    bool active = scheduleObj.containsKey("active") ? (bool)scheduleObj["active"] : true;
+    if (!active)
+      continue;
+
+    String deviceName = "unknown";
+    int deviceIdx = findDeviceIndexById(devicesJSONArray, deviceId);
+    if (deviceIdx >= 0)
+    {
+      JsonObject deviceObj = devicesJSONArray[deviceIdx].as<JsonObject>();
+      deviceName = String(deviceObj["name"] | "");
+    }
+
+    JsonObject copied = outArr.createNestedObject();
+    for (JsonPair kv : scheduleObj)
+    {
+      copied[kv.key()] = kv.value();
+    }
+
+    String hour = String(scheduleObj["hour"] | "");
+    String minute = String(scheduleObj["minute"] | "");
+    if (hour.length() == 1)
+      hour = "0" + hour;
+    if (minute.length() == 1)
+      minute = "0" + minute;
+
+    copied["deviceName"] = deviceName;
+    copied["time"] = hour + ":" + minute;
+  }
+
+  if (DEBUG_JSON)
+  {
+    serializeJson(outArr, Serial);
+    Serial.println();
+  }
+
+  const String response = [&]()
+  {
+    String out;
+    serializeJson(outArr, out);
     return out;
   }();
 
@@ -346,45 +514,43 @@ void changeDeviceStatus()
   String newStatus = server.arg("status");
 
   JsonDocument jsonResponse;
-  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
-  JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+  JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
 
-  for (int i = 0; i < dispEncontrados; i++)
+  int idx = findDeviceIndexById(devicesJSONArray, id);
+  if (idx < 0)
   {
-    JsonDocument deviceObj = devicesJSONArray[i];
-    Device device = jsonToDevice(deviceObj);
-
-    if (device.id == id)
-    {
-      if (device.main)
-      {
-        if (newStatus == "0")
-        {
-          digitalWrite(localPort, LOW); // LED ON
-          deviceObj["status"] = "0";    // Feedback parameter
-        }
-        else
-        {
-          digitalWrite(localPort, HIGH); // LED OFF
-          deviceObj["status"] = "1";     // Feedback parameter
-        }
-
-        jsonResponse = deviceObj;
-
-        break;
-      }
-      else
-      {
-        deviceObj["status"] = "error"; // TODO: Default feedback for non-main devices
-        jsonResponse = deviceObj;
-
-        break;
-      }
-    }
+    return BadRequestError("Device not found");
   }
 
-  serializeJson(jsonResponse, Serial);
-  Serial.println();
+  JsonDocument deviceObj = devicesJSONArray[idx];
+  Device device = jsonToDevice(deviceObj);
+
+  if (device.main)
+  {
+    if (newStatus == "0")
+    {
+      digitalWrite(localPort, LOW); // LED ON
+      deviceObj["status"] = "0";    // Feedback parameter
+    }
+    else
+    {
+      digitalWrite(localPort, HIGH); // LED OFF
+      deviceObj["status"] = "1";     // Feedback parameter
+    }
+
+    jsonResponse = deviceObj;
+  }
+  else
+  {
+    deviceObj["status"] = "error"; // TODO: Default feedback for non-main devices
+    jsonResponse = deviceObj;
+  }
+
+  if (DEBUG_JSON)
+  {
+    serializeJson(jsonResponse, Serial);
+    Serial.println();
+  }
 
   const String response = [&]()
   {
@@ -398,20 +564,29 @@ void changeDeviceStatus()
 
 bool saveJsonToAFile(JsonDocument *doc, String fileName)
 {
-  Serial.print(F("Start write..."));
+  if (DEBUG_JSON)
+  {
+    Serial.print(F("Start write..."));
+  }
 
   String jsonString = "";
 
   serializeJson(*doc, jsonString);
 
-  Serial.printf("Json to save");
-  Serial.println(jsonString);
+  if (DEBUG_JSON)
+  {
+    Serial.printf("Json to save");
+    Serial.println(jsonString);
+  }
 
   salvaArquivo(jsonString, fileName, false);
 
-  Serial.print(F("..."));
-  // close the file:
-  Serial.println(F("done."));
+  if (DEBUG_JSON)
+  {
+    Serial.print(F("..."));
+    // close the file:
+    Serial.println(F("done."));
+  }
 
   return true;
 }
@@ -505,15 +680,15 @@ void connectWireless()
   // Espera enquanto não conecta ao roteador
   String baseUrl = "";
 
-  int y = 0;
-  while (WiFi.status() != WL_CONNECTED && y < 15)
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 15)
   {
     delay(500);
     Serial.print(".");
-    y++;
+    attempts++;
   }
 
-  if (y < 15)
+  if (attempts < 15)
   {
     baseUrl = "http://" + WiFi.localIP().toString();
     Serial.print("Novo IP: ");
@@ -529,10 +704,9 @@ void connectWireless()
 
     saveJsonToAFile(&settingsJSON, SettingsFile);
 
-    JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
-    JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+    JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
 
-    for (int i = 0; i < dispEncontrados; i++)
+    for (int i = 0; i < devicesFound; i++)
     {
       JsonDocument deviceObj = devicesJSONArray[i];
       Device device = jsonToDevice(deviceObj);
@@ -543,7 +717,7 @@ void connectWireless()
         devicesJSONArray[i]["id"] = uuid.toCharArray();
         devicesJSONArray[i]["ip"] = WiFi.localIP().toString();
 
-        saveJsonToAFile(&devicesJSON, DevicesFile);
+        saveDevicesToFile();
 
         break;
       }
@@ -575,29 +749,6 @@ void finalizaConfig()
   ESP.restart();
 }
 
-void listDir(const char *dirname)
-{
-  Serial.printf("Listing directory: %s\n", dirname);
-
-  Dir root = LittleFS.openDir(dirname);
-
-  while (root.next())
-  {
-    File file = root.openFile("r");
-    Serial.print("  FILE: ");
-    Serial.print(root.fileName());
-    Serial.print("  SIZE: ");
-    Serial.print(file.size());
-    time_t cr = file.getCreationTime();
-    time_t lw = file.getLastWrite();
-    file.close();
-    struct tm *tmstruct = localtime(&cr);
-    Serial.printf("    CREATION: %d-%02d-%02d %02d:%02d:%02d\n", (tmstruct->tm_year) + 1900, (tmstruct->tm_mon) + 1, tmstruct->tm_mday, tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
-    tmstruct = localtime(&lw);
-    Serial.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n", (tmstruct->tm_year) + 1900, (tmstruct->tm_mon) + 1, tmstruct->tm_mday, tmstruct->tm_hour, tmstruct->tm_min, tmstruct->tm_sec);
-  }
-}
-
 String loadFile(String caminho)
 {
   File arquivo = LittleFS.open(caminho, "r");
@@ -606,17 +757,17 @@ String loadFile(String caminho)
   // Se o arquivo existe
   if (arquivo)
   {
-    Serial.println("");
-    Serial.println("Leu o arquivo");
-    // read from the file until there's nothing else in it:
+
     while (arquivo.available())
     {
       response += (char)arquivo.read();
     }
     // close the file:
     arquivo.close();
-    Serial.println(response);
-    Serial.println("");
+
+    if (DEBUG_JSON)
+      Serial.println(response);
+
     return response;
   }
   else
@@ -642,24 +793,6 @@ bool salvaArquivo(String textoNovo, String caminho, bool recarrega)
     // Fecha o arquivo:
     arquivo.close();
 
-    if (caminho == "/configs.txt")
-      textoConfig = loadFile(SettingsFile);
-    // else if (caminho == "/dispositivos.txt") {
-    //   textoDispositivos = loadFile(DevicesFile);
-    //   if (recarrega) {
-    //     // Atualiza os textos globais
-    //     dispEncontrados = qtdDispositivos(textoDispositivos);
-    //     pegaDisps(&dispositivos[0]);
-    //   }
-    // }
-    // else if (caminho == "/alarmes.txt") {
-    //   textoAlarmes = loadFile(ArquivoAlarmes);
-    //   if (recarrega) {
-    //     // Atualiza os textos globais
-    //     alarmesEncontrados = qtdDispositivos(textoAlarmes);
-    //     pegaAlarmes(&alarmes[0]);
-    //   }
-    // }
     return true;
   }
   else
@@ -714,7 +847,7 @@ bool loadFromSpiffs(String path)
 
 void createDevice()
 {
-  if (dispEncontrados >= MAX_QTD_DISP)
+  if (devicesFound >= MAX_QTD_DISP)
   {
     return BadRequestError("Maximum number of devices reached");
   }
@@ -751,8 +884,7 @@ void createDevice()
   }
 
   JsonDocument jsonResponse;
-  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
-  JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+  JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
 
   UUID uuid;
   JsonDocument newDeviceObj;
@@ -764,13 +896,16 @@ void createDevice()
 
   devicesJSONArray.add(newDeviceObj);
 
-  dispEncontrados++;
+  devicesFound++;
 
-  saveJsonToAFile(&devicesJSON, DevicesFile);
+  saveDevicesToFile();
   deviceToJSON(jsonToDevice(newDeviceObj), jsonResponse);
 
-  serializeJson(jsonResponse, Serial);
-  Serial.println();
+  if (DEBUG_JSON)
+  {
+    serializeJson(jsonResponse, Serial);
+    Serial.println();
+  }
 
   const String response = [&]()
   {
@@ -823,44 +958,52 @@ void editDevice()
 
   bool found = false;
   JsonDocument jsonResponse;
-  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
-  JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+  JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
 
-  for (int i = 0; i < dispEncontrados; i++)
+  // When device isn't configured yet, edit the main device
+  if (!settings.configured)
   {
-    JsonDocument deviceObj = devicesJSONArray[i];
-    Device device = jsonToDevice(deviceObj);
+    JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
 
-    if (!settings.configured && device.main)
+    for (int i = 0; i < devicesFound; i++)
     {
-      devicesJSONArray[i]["name"] = name;
-      device.name = name;
-
-      saveJsonToAFile(&devicesJSON, DevicesFile);
-      deviceToJSON(device, jsonResponse);
-      found = true;
-
-      break;
-    }
-    else if (device.id == id)
-    {
-      if (nameProvided)
+      JsonDocument deviceObj = devicesJSONArray[i];
+      Device device = jsonToDevice(deviceObj);
+      if (device.main)
       {
         devicesJSONArray[i]["name"] = name;
+        device.name = name;
+
+        saveDevicesToFile();
+        deviceToJSON(device, jsonResponse);
+        found = true;
+        break;
+      }
+    }
+  }
+  else
+  {
+    int idx = findDeviceIndexById(devicesJSONArray, id);
+    if (idx >= 0)
+    {
+      JsonDocument deviceObj = devicesJSONArray[idx];
+      Device device = jsonToDevice(deviceObj);
+
+      if (nameProvided)
+      {
+        devicesJSONArray[idx]["name"] = name;
         device.name = name;
       }
 
       if (ipProvided && !device.main)
       {
-        devicesJSONArray[i]["ip"] = ip;
+        devicesJSONArray[idx]["ip"] = ip;
         device.ip = ip;
       }
 
-      saveJsonToAFile(&devicesJSON, DevicesFile);
+      saveDevicesToFile();
       deviceToJSON(device, jsonResponse);
       found = true;
-
-      break;
     }
   }
 
@@ -869,8 +1012,11 @@ void editDevice()
     return BadRequestError("Device not found");
   }
 
-  serializeJson(jsonResponse, Serial);
-  Serial.println();
+  if (DEBUG_JSON)
+  {
+    serializeJson(jsonResponse, Serial);
+    Serial.println();
+  }
 
   const String response = [&]()
   {
@@ -891,24 +1037,21 @@ void deleteDevice()
 
   String id = server.arg("id");
   bool found = false;
-  JsonDocument jsonResponse;
-  JsonDocument devicesJSON = getJSONFromFile(&devicesJSONResults, DevicesFile);
-  JsonArray devicesJSONArray = devicesJSON.as<JsonArray>();
+  JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
 
-  for (int i = 0; i < dispEncontrados; i++)
+  int idx = findDeviceIndexById(devicesJSONArray, id);
+  if (idx >= 0)
   {
-    JsonDocument deviceObj = devicesJSONArray[i];
+    JsonDocument deviceObj = devicesJSONArray[idx];
     Device device = jsonToDevice(deviceObj);
 
-    if (device.id == id && !device.main)
+    if (!device.main)
     {
-      devicesJSONArray.remove(i);
-      dispEncontrados--;
+      devicesJSONArray.remove(idx);
+      devicesFound--;
 
-      saveJsonToAFile(&devicesJSON, DevicesFile);
+      saveDevicesToFile();
       found = true;
-
-      break;
     }
   }
 
@@ -920,6 +1063,357 @@ void deleteDevice()
   {
     return BadRequestError("Device not found or is main device");
   }
+}
+
+bool validateScheduleFields(const String &deviceId, const String &hour, const String &minute, bool checkDeviceExists, String &outError)
+{
+  auto isDigits = [](const String &s)
+  {
+    if (s.length() == 0)
+      return false;
+    for (size_t i = 0; i < s.length(); ++i)
+      if (!isDigit(s[i]))
+        return false;
+    return true;
+  };
+
+  if (!isDigits(hour) || !isDigits(minute))
+  {
+    outError = "Hour and minute must be numeric";
+    return false;
+  }
+
+  int h = hour.toInt();
+  int m = minute.toInt();
+  if (h < 0 || h > 23 || m < 0 || m > 59)
+  {
+    outError = "Hour must be 0-23 and minute 0-59";
+    return false;
+  }
+
+  if (checkDeviceExists)
+  {
+    JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
+    int idx = findDeviceIndexById(devicesJSONArray, deviceId);
+    if (idx < 0)
+    {
+      outError = "deviceId not found";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+void createSchedule()
+{
+  if (!server.hasArg("plain"))
+  {
+    return BadRequestError("Body is required");
+  }
+
+  String body = server.arg("plain");
+  JsonDocument doc;
+
+  DeserializationError error = deserializeJson(doc, body);
+  if (error)
+  {
+    return BadRequestError("Invalid JSON");
+  }
+
+  const String name = doc["name"] | "";
+  const String deviceId = doc["deviceId"] | "";
+  const String hour = doc["hour"] | "";
+  const String minute = doc["minute"] | "";
+  const String action = doc["action"] | "";
+  const bool active = doc.containsKey("active") ? (bool)doc["active"] : true;
+
+  const bool nameProvided = name.length() > 0;
+  const bool deviceProvided = deviceId.length() > 0;
+  const bool hourProvided = hour.length() > 0;
+  const bool minuteProvided = minute.length() > 0;
+
+  if (!nameProvided || !deviceProvided || !hourProvided || !minuteProvided)
+  {
+    return BadRequestError("Name, deviceId, hour and minute are required");
+  }
+
+  JsonArray schedulesJSONArray = schedulesJSONResults.as<JsonArray>();
+
+  auto isDigits = [](const String &s)
+  {
+    if (s.length() == 0)
+      return false;
+    for (size_t i = 0; i < s.length(); ++i)
+      if (!isDigit(s[i]))
+        return false;
+    return true;
+  };
+
+  if (!isDigits(hour) || !isDigits(minute))
+  {
+    return BadRequestError("Hour and minute must be numeric");
+  }
+
+  int h = hour.toInt();
+  int m = minute.toInt();
+
+  if (h < 0 || h > 23 || m < 0 || m > 59)
+  {
+    return BadRequestError("Hour must be 0-23 and minute 0-59");
+  }
+
+  JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
+
+  int idx = findDeviceIndexById(devicesJSONArray, deviceId);
+  if (idx < 0)
+  {
+    return BadRequestError("deviceId not found");
+  }
+  String validationError;
+  if (!validateScheduleFields(deviceId, hour, minute, true, validationError))
+  {
+    return BadRequestError(validationError);
+  }
+
+  UUID uuid;
+  JsonDocument newScheduleObj;
+
+  newScheduleObj["id"] = uuid.toCharArray();
+  newScheduleObj["name"] = name;
+  newScheduleObj["deviceId"] = deviceId;
+  newScheduleObj["hour"] = hour;
+  newScheduleObj["minute"] = minute;
+  newScheduleObj["action"] = action;
+  newScheduleObj["active"] = active;
+
+  schedulesJSONArray.add(newScheduleObj);
+
+  schedulesFound = schedulesJSONArray.size();
+
+  saveSchedulesToFile();
+
+  JsonDocument jsonResponse;
+  jsonResponse = newScheduleObj;
+
+  if (DEBUG_JSON)
+  {
+    serializeJson(jsonResponse, Serial);
+    Serial.println();
+  }
+
+  const String response = [&]()
+  {
+    String out;
+    serializeJson(jsonResponse, out);
+    return out;
+  }();
+
+  server.send(201, "application/json", response);
+}
+
+void editSchedule()
+{
+  if (!server.hasArg("id"))
+  {
+    return BadRequestError("Id is required");
+  }
+
+  if (!server.hasArg("plain"))
+  {
+    return BadRequestError("Body is required");
+  }
+
+  String id = server.arg("id");
+  String body = server.arg("plain");
+
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, body);
+  if (error)
+  {
+    return BadRequestError("Invalid JSON");
+  }
+
+  JsonArray schedulesJSONArray = schedulesJSONResults.as<JsonArray>();
+
+  bool found = false;
+  JsonDocument jsonResponse;
+
+  for (int i = 0; i < (int)schedulesJSONArray.size(); i++)
+  {
+    JsonDocument scheduleObj = schedulesJSONArray[i];
+    String sid = String(scheduleObj["id"] | "");
+
+    if (sid == id)
+    {
+      if (doc.containsKey("name"))
+        schedulesJSONArray[i]["name"] = doc["name"];
+
+      if (doc.containsKey("deviceId"))
+      {
+        String newDeviceId = String(doc["deviceId"] | "");
+
+        JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
+        int deviceIdx = findDeviceIndexById(devicesJSONArray, newDeviceId);
+        if (deviceIdx < 0)
+          return BadRequestError("deviceId not found");
+
+        schedulesJSONArray[i]["deviceId"] = doc["deviceId"];
+      }
+
+      if (doc.containsKey("hour") || doc.containsKey("minute"))
+      {
+        String newHour = doc.containsKey("hour") ? String(doc["hour"] | "") : String(schedulesJSONArray[i]["hour"] | "");
+        String newMinute = doc.containsKey("minute") ? String(doc["minute"] | "") : String(schedulesJSONArray[i]["minute"] | "");
+
+        String validationError;
+        if (!validateScheduleFields("", newHour, newMinute, false, validationError))
+        {
+          return BadRequestError(validationError);
+        }
+
+        schedulesJSONArray[i]["hour"] = newHour;
+        schedulesJSONArray[i]["minute"] = newMinute;
+      }
+
+      if (doc.containsKey("action"))
+        schedulesJSONArray[i]["action"] = doc["action"];
+
+      if (doc.containsKey("active"))
+        schedulesJSONArray[i]["active"] = doc["active"];
+
+      saveSchedulesToFile();
+
+      jsonResponse = schedulesJSONArray[i];
+      found = true;
+      break;
+    }
+  }
+
+  if (!found)
+  {
+    return BadRequestError("Schedule not found");
+  }
+
+  if (DEBUG_JSON)
+  {
+    serializeJson(jsonResponse, Serial);
+    Serial.println();
+  }
+
+  const String response = [&]()
+  {
+    String out;
+    serializeJson(jsonResponse, out);
+    return out;
+  }();
+
+  server.send(200, "application/json", response);
+}
+
+void deleteSchedule()
+{
+  if (!server.hasArg("id"))
+  {
+    return BadRequestError("Id is required");
+  }
+
+  String id = server.arg("id");
+
+  JsonArray schedulesJSONArray = schedulesJSONResults.as<JsonArray>();
+
+  bool found = false;
+
+  for (int i = 0; i < (int)schedulesJSONArray.size(); i++)
+  {
+    JsonDocument scheduleObj = schedulesJSONArray[i];
+    String sid = String(scheduleObj["id"] | "");
+
+    if (sid == id)
+    {
+      schedulesJSONArray.remove(i);
+      schedulesFound = schedulesJSONArray.size();
+      saveSchedulesToFile();
+      found = true;
+      break;
+    }
+  }
+
+  if (found)
+  {
+    server.send(204, "application/json");
+  }
+  else
+  {
+    return BadRequestError("Schedule not found");
+  }
+}
+
+bool checkForAlarm(byte hora, byte minuto)
+{
+  String horaStr = String(hora);
+  String minutoStr = String(minuto);
+
+  JsonArray schedulesJSONArray = schedulesJSONResults.as<JsonArray>();
+
+  JsonArray devicesJSONArray = devicesJSONResults.as<JsonArray>();
+
+  bool found = false;
+
+  for (int i = 0; i < (int)schedulesJSONArray.size(); i++)
+  {
+    JsonDocument scheduleObj = schedulesJSONArray[i];
+    Schedule schedule = jsonToSchedule(scheduleObj);
+
+    Serial.print("Hora: ");
+    Serial.println(schedule.hour);
+
+    Serial.print("Minuto: ");
+    Serial.println(schedule.minute);
+
+    if (schedule.hour == horaStr && schedule.minute == minutoStr)
+    {
+      Serial.println("Alarme encontrado");
+      Serial.print("Acao: ");
+      Serial.println(schedule.action);
+      found = true;
+
+      // Find device referenced by this schedule and apply action
+      int idx = findDeviceIndexById(devicesJSONArray, schedule.deviceId);
+      if (idx >= 0)
+      {
+        JsonDocument deviceObj = devicesJSONArray[idx];
+        Device device = jsonToDevice(deviceObj);
+
+        String action = schedule.action;
+
+        if (device.main)
+        {
+          if (action == "0")
+          {
+            digitalWrite(localPort, LOW); // LED ON
+          }
+          else if (action == "1")
+          {
+            digitalWrite(localPort, HIGH); // LED OFF
+          }
+        }
+        else
+        {
+          // For non-main devices we store the intended status; actual remote command not implemented
+        }
+      }
+      else
+      {
+        Serial.print("Device not found for id: ");
+        Serial.println(schedule.deviceId);
+      }
+    }
+  }
+
+  Serial.println("Alarme checado!");
+
+  return found;
 }
 
 void BadRequestError(String message)

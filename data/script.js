@@ -102,7 +102,7 @@ function criaListaDisp(dispositivosJson) {
     btn.id = "btn" + i;
     btn.setAttribute(
       "onclick",
-      "sendData('" + ("btn" + i) + "', '" + dispositivo.id + "')"
+      "sendData('" + ("btn" + i) + "', '" + dispositivo.id + "')",
     );
 
     if (dispositivo.status == "0") {
@@ -260,11 +260,11 @@ async function sendData(btn, id) {
   try {
     const response = await fetch(
       `device/status?id=${encodeURIComponent(id)}&status=${encodeURIComponent(
-        modificaPara
+        modificaPara,
       )}`,
       {
         method: "PUT",
-      }
+      },
     );
 
     if (!response.ok) {
@@ -287,22 +287,24 @@ async function sendData(btn, id) {
 async function procuraAlarmes(id) {
   try {
     const response = await fetch(
-      `procuralarmes?idDispAlarme=${encodeURIComponent(id)}`,
+      `schedule?deviceId=${encodeURIComponent(id)}`,
       {
         method: "GET",
-      }
+      },
     );
     if (!response.ok) {
       throw new Error("Erro ao recuperar informações");
     }
+
     const data = await response.json();
+
     listaAlarmes(data);
   } catch (error) {
     alert(error.message);
   }
 }
 
-function listaAlarmes(json) {
+function listaAlarmes(schedulesJson) {
   //Select com a lista de pinos
   var listaAlarmes = document.getElementById("sessao_alarmes");
 
@@ -310,20 +312,21 @@ function listaAlarmes(json) {
     listaAlarmes.removeChild(listaAlarmes.firstChild);
   }
 
-  var count = json.count;
+  // Se não há alarmes, exibe mensagem
+  if (!schedulesJson || schedulesJson.length === 0) {
+    var divMsg = document.createElement("div");
+    divMsg.className = "alert alert-info";
+    divMsg.innerText = "Nenhum alarme registrado.";
+    listaAlarmes.appendChild(divMsg);
+    return;
+  }
 
-  //Esta é a lista de pinos em uso, salvos no ESP, retornados por ele na requisição em 'pinList'
-  alarmes = json.alarmes;
+  for (var i = 0; i < schedulesJson.length; i++) {
+    let schedule = schedulesJson[i];
 
-  //Para cada pino em uso
-  for (var i = 0; i < alarmes.length; i++) {
-    //Mantém uma referência às informações do pino de forma que seja possível acessá-lo no callback
-    let alarme = alarmes[i];
-
-    //Cria um novo botão para alterar o estado deste pino
     var linhaPrincipal = document.createElement("div");
     linhaPrincipal.className = "row align-items-center div-dispositivos";
-    linhaPrincipal.id = "linhaAlarme" + alarme.id;
+    linhaPrincipal.id = "linhaAlarme" + schedule.id;
 
     var colunaEsquerda = document.createElement("div");
     colunaEsquerda.className = "col-12 col-lg-4 form-group";
@@ -355,17 +358,13 @@ function listaAlarmes(json) {
     // ID
     var colunaNome = document.createElement("div");
     colunaNome.className = "col-12";
-    //var spanId = document.createElement("span");
-    //spanId.id = "idAlarme" + alarme.id;
-    //spanId.innerText = alarme.id;
-    //colunaNome.appendChild(spanId);
 
     // Nome
     var inputNome = document.createElement("input");
-    inputNome.id = "nomeAlarme" + alarme.id;
+    inputNome.id = "nomeAlarme" + schedule.id;
     inputNome.type = "text";
     inputNome.className = "form-control";
-    inputNome.value = alarme.nome;
+    inputNome.value = schedule.name;
     colunaNome.appendChild(inputNome);
 
     // Horário
@@ -379,27 +378,27 @@ function listaAlarmes(json) {
     spanHora.innerHTML = "Hora";
     var selectHora = document.createElement("select");
     selectHora.className = "form-control";
-    selectHora.id = "selectHora" + alarme.id;
+    selectHora.id = "selectHora" + schedule.id;
     for (var x = 0; x <= 23; x++) {
       var optionHora = document.createElement("option");
       optionHora.innerHTML = x;
       optionHora.value = x;
       selectHora.appendChild(optionHora);
     }
-    selectHora.selectedIndex = alarme.hora;
+    selectHora.selectedIndex = schedule.hour;
 
     var spanMinuto = document.createElement("label");
     spanMinuto.innerHTML = "Minuto";
     var selectMinuto = document.createElement("select");
     selectMinuto.className = "form-control";
-    selectMinuto.id = "selectMinuto" + alarme.id;
+    selectMinuto.id = "selectMinuto" + schedule.id;
     for (var y = 0; y <= 59; y++) {
       var optionMinuto = document.createElement("option");
       optionMinuto.innerHTML = y;
       optionMinuto.value = y;
       selectMinuto.appendChild(optionMinuto);
     }
-    selectMinuto.selectedIndex = alarme.minuto;
+    selectMinuto.selectedIndex = schedule.minute;
 
     colunaHora.appendChild(spanHora);
     colunaHora.appendChild(selectHora);
@@ -417,7 +416,7 @@ function listaAlarmes(json) {
     spanAcao.innerHTML = "Ação";
     var selectAcao = document.createElement("select");
     selectAcao.className = "form-control";
-    selectAcao.id = "selectAcao" + alarme.id;
+    selectAcao.id = "selectAcao" + schedule.id;
 
     var optionAcao01 = document.createElement("option");
     optionAcao01.innerHTML = "Desligar";
@@ -428,13 +427,13 @@ function listaAlarmes(json) {
     optionAcao02.innerHTML = "Ligar";
     optionAcao02.value = "1";
     selectAcao.appendChild(optionAcao02);
-    selectAcao.selectedIndex = alarme.acao;
+    selectAcao.selectedIndex = schedule.action;
 
     var spanAtivo = document.createElement("label");
     spanAtivo.innerHTML = "Estado";
     var selectAtivo = document.createElement("select");
     selectAtivo.className = "form-control";
-    selectAtivo.id = "selectAtivo" + alarme.id;
+    selectAtivo.id = "selectAtivo" + schedule.id;
 
     var optionAtivo01 = document.createElement("option");
     optionAtivo01.innerHTML = "Desativado";
@@ -445,7 +444,7 @@ function listaAlarmes(json) {
     optionAtivo02.innerHTML = "Ativado";
     optionAtivo02.value = "1";
     selectAtivo.appendChild(optionAtivo02);
-    selectAtivo.selectedIndex = alarme.ativo;
+    selectAtivo.selectedIndex = schedule.active;
 
     colunaAcao.appendChild(spanAcao);
     colunaAcao.appendChild(selectAcao);
@@ -458,8 +457,8 @@ function listaAlarmes(json) {
 
     var btnSalvar = document.createElement("button");
     btnSalvar.className = "btn btn-success";
-    btnSalvar.id = "btnSalvar" + alarme.id;
-    btnSalvar.setAttribute("onclick", "editarAlarme('" + alarme.id + "')");
+    btnSalvar.id = "btnSalvar" + schedule.id;
+    btnSalvar.setAttribute("onclick", "editarAlarme('" + schedule.id + "')");
 
     var spanBotaoSalvar = document.createElement("span");
     spanBotaoSalvar.className = "oi oi-task";
@@ -468,7 +467,7 @@ function listaAlarmes(json) {
 
     var divProgressoSalvar = document.createElement("div");
     divProgressoSalvar.className = "spinner-border text-success";
-    divProgressoSalvar.id = "progresso" + alarme.id;
+    divProgressoSalvar.id = "progresso" + schedule.id;
     divProgressoSalvar.setAttribute("role", "status");
     divProgressoSalvar.style.display = "none";
 
@@ -487,8 +486,8 @@ function listaAlarmes(json) {
 
     var btnExcluir = document.createElement("button");
     btnExcluir.className = "btn btn-danger";
-    btnExcluir.id = "btnExcluir" + alarme.id;
-    btnExcluir.setAttribute("onclick", "excluirAlarme('" + alarme.id + "')");
+    btnExcluir.id = "btnExcluir" + schedule.id;
+    btnExcluir.setAttribute("onclick", "excluirAlarme('" + schedule.id + "')");
 
     var spanBotaoExcluir = document.createElement("span");
     spanBotaoExcluir.className = "oi oi-trash";
@@ -497,7 +496,7 @@ function listaAlarmes(json) {
 
     var divProgressoExcluir = document.createElement("div");
     divProgressoExcluir.className = "spinner-border text-danger";
-    divProgressoExcluir.id = "progressoExcluir" + alarme.id;
+    divProgressoExcluir.id = "progressoExcluir" + schedule.id;
     divProgressoExcluir.setAttribute("role", "status");
     divProgressoExcluir.style.display = "none";
 
@@ -538,31 +537,106 @@ function listaAlarmes(json) {
   }
 }
 
+// Adicionar um alarme (novo)
+async function novoAlarme() {
+  try {
+    document.getElementById("novoAlarmeBtns").style.display = "none";
+    document.getElementById("novoAlarmeAguarde").style.display = "inline-block";
+
+    var deviceId = document.getElementById("deviceIdNovo").value;
+    var name = document.getElementById("nomeNovoAlarme").value;
+    var hour = String(document.getElementById("selectHoraNovo").selectedIndex);
+    var minute = String(
+      document.getElementById("selectMinutoNovo").selectedIndex,
+    );
+    var action = document.getElementById("selectAcaoNovo").selectedIndex;
+    var active = document.getElementById("selectAtivoNovo").selectedIndex;
+
+    var body = {
+      deviceId,
+      name,
+      hour,
+      minute,
+      action,
+      active,
+    };
+
+    const response = await fetch("/schedule", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+      $("#modalNovoAlarme").modal("hide");
+      var deviceName =
+        document.getElementById("nomeDispNovoAlarme").innerHTML || "";
+      $("#modalAlarmes").data("id", deviceId);
+      $("#modalAlarmes").data("nome", deviceName);
+      $("#modalAlarmes").modal("show");
+      showToast("Alarme criado com sucesso.");
+
+      document.getElementById("novoAlarmeBtns").style.display = "inline-block";
+      document.getElementById("novoAlarmeAguarde").style.display = "none";
+    } else {
+      const data = await response.json();
+
+      document.getElementById("novoAlarmeBtns").style.display = "inline-block";
+      document.getElementById("novoAlarmeAguarde").style.display = "none";
+
+      alert("Erro ao criar alarme: " + data?.message);
+    }
+  } catch (error) {
+    document.getElementById("novoAlarmeBtns").style.display = "inline-block";
+    document.getElementById("novoAlarmeAguarde").style.display = "none";
+
+    alert("Erro ao adicionar alarme: " + error);
+  }
+}
+
+function showToast(message) {
+  var toastEl = document.getElementById("toastAlarme");
+  if (!toastEl) return;
+  toastEl.querySelector(".toast-body").innerText = message;
+  $("#toastAlarme").toast({ delay: 2000 });
+  $("#toastAlarme").toast("show");
+}
+
 // Editar um alarme
 async function editarAlarme(id) {
-  var nome = document.getElementById("nomeAlarme" + id).value;
-  var hora = document.getElementById("selectHora" + id).selectedIndex;
-  var minuto = document.getElementById("selectMinuto" + id).selectedIndex;
-  var acao = document.getElementById("selectAcao" + id).selectedIndex;
-  var ativo = document.getElementById("selectAtivo" + id).selectedIndex;
+  var name = document.getElementById("nomeAlarme" + id).value;
+  var hour = String(document.getElementById("selectHora" + id).selectedIndex);
+  var minute = String(
+    document.getElementById("selectMinuto" + id).selectedIndex,
+  );
+  var action = document.getElementById("selectAcao" + id).selectedIndex;
+  var active = document.getElementById("selectAtivo" + id).selectedIndex;
+
+  var body = {
+    name,
+    hour,
+    minute,
+    action,
+    active,
+  };
 
   document.getElementById("btnSalvar" + id).style.display = "none";
   document.getElementById("progresso" + id).style.display = "inline-block";
 
   try {
-    const response = await fetch(
-      `editaalarme?id=${encodeURIComponent(id)}&nome=${encodeURIComponent(
-        nome
-      )}&hora=${encodeURIComponent(hora)}&minuto=${encodeURIComponent(
-        minuto
-      )}&acao=${encodeURIComponent(acao)}&ativo=${encodeURIComponent(ativo)}`,
-      {
-        method: "GET",
-      }
-    );
+    const response = await fetch(`schedule?id=${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
     if (response.ok) {
       document.getElementById("progresso" + id).style.display = "none";
       document.getElementById("btnSalvar" + id).style.display = "inline-block";
+      showToast("Alarme editado com sucesso.");
     }
   } catch (error) {
     alert("Erro ao editar alarme: " + error);
@@ -576,14 +650,17 @@ async function excluirAlarme(id) {
   document.getElementById("btnExcluir" + id).style.display = "none";
   document.getElementById("progressoExcluir" + id).style.display =
     "inline-block";
+
   try {
-    const response = await fetch(`excluialarme?id=${encodeURIComponent(id)}`, {
-      method: "GET",
+    const response = await fetch(`schedule?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
     });
+
     if (response.ok) {
       document.getElementById("progressoExcluir" + id).style.display = "none";
       document.getElementById("linhaAlarme" + id).style.opacity = 0;
       document.getElementById("linhaAlarme" + id).style.display = "none";
+      showToast("Alarme excluído com sucesso.");
     }
   } catch (error) {
     alert("Erro ao excluir alarme: " + error);
@@ -592,5 +669,4 @@ async function excluirAlarme(id) {
   }
 }
 
-function retiraAlarme(id) {}
 // Alarmes fim

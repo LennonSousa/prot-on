@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="420" viewBox="0 0 800 420">
+  <style>
+    .box{fill:#f8f9fa;stroke:#343a40;stroke-width:2}
+    .pin{font:14px/1.2 Arial, sans-serif;fill:#212529}
+    .lbl{font:12px/1.2 Arial, sans-serif;fill:#212529}
+    .wire{stroke:#007bff;stroke-width:3;fill:none}
+    .gnd{stroke:#6c757d;stroke-width:2}
+    .note{font:12px/1.2 Arial, sans-serif;fill:#155724}
+  </style>
+
+  <!-- ESP-12 module -->
+  <rect x="40" y="30" width="220" height="150" rx="8" ry="8" class="box" />
+  <text x="150" y="55" text-anchor="middle" class="pin">ESP-12 / ESP8266</text>
+
+  <text x="150" y="80" text-anchor="middle" class="lbl">(Module view)</text>
+
+  <!-- pins -->
+  <line x1="40" y1="110" x2="12" y2="110" class="wire" />
+  <text x="12" y="108" text-anchor="end" class="pin">GND</text>
+
+  <line x1="40" y1="140" x2="12" y2="140" class="wire" />
+  <text x="12" y="138" text-anchor="end" class="pin">3V3</text>
+
+  <line x1="260" y1="110" x2="460" y2="110" class="wire" />
+  <text x="460" y="100" class="pin">GPIO4 (D2)</text>
+
+  <!-- transistor and resistor -->
+  <g transform="translate(460,80)">
+    <rect x="0" y="10" width="90" height="70" rx="6" ry="6" fill="#fff3cd" stroke="#856404" stroke-width="1" />
+    <text x="45" y="30" text-anchor="middle" class="lbl">2N2222</text>
+    <text x="45" y="50" text-anchor="middle" class="lbl">NPN</text>
+
+    <!-- base resistor -->
+    <line x1="-120" y1="45" x2="0" y2="45" stroke="#ffc107" stroke-width="4" />
+    <text x="-60" y="40" text-anchor="middle" class="lbl">1k</text>
+  </g>
+
+  <!-- base from GPIO4 -->
+  <line x1="372" y1="110" x2="460" y2="110" stroke="#007bff" stroke-width="3" />
+  <line x1="372" y1="110" x2="372" y2="75" stroke="#007bff" stroke-width="3" />
+  <line x1="372" y1="75" x2="460" y2="75" stroke="#007bff" stroke-width="3" />
+
+  <!-- relay coil -->
+  <rect x="560" y="50" width="120" height="80" rx="6" ry="6" fill="#e2e3e5" stroke="#6c757d" stroke-width="1" />
+  <text x="620" y="80" text-anchor="middle" class="lbl">Relay Coil</text>
+  <text x="620" y="100" text-anchor="middle" class="lbl">(5V)</text>
+
+  <!-- connections: collector -> coil -> 5V -->
+  <line x1="550" y1="95" x2="560" y2="95" stroke="#343a40" stroke-width="3" />
+  <line x1="550" y1="95" x2="520" y2="95" stroke="#343a40" stroke-width="3" />
+  <line x1="520" y1="95" x2="550" y2="125" stroke="#343a40" stroke-width="3" />
+
+  <!-- collector to coil -->
+  <line x1="550" y1="95" x2="550" y2="150" stroke="#343a40" stroke-width="3" />
+  <line x1="650" y1="95" x2="700" y2="95" stroke="#28a745" stroke-width="3" />
+  <text x="700" y="90" class="pin">+5V (VCC)</text>
+
+  <!-- diode across coil -->
+  <line x1="560" y1="120" x2="680" y2="120" stroke="#dc3545" stroke-width="3" />
+  <text x="620" y="132" text-anchor="middle" class="lbl">1N400x (flyback)</text>
+
+  <!-- emitter to GND -->
+  <line x1="506" y1="150" x2="506" y2="180" class="gnd" />
+  <line x1="506" y1="180" x2="220" y2="180" class="gnd" />
+  <line x1="220" y1="180" x2="12" y2="110" class="gnd" />
+
+  <text x="50" y="220" class="note">Notes:</text>
+  <text x="50" y="240" class="note">• Use a transistor (eg. 2N2222) with a base resistor (1k) and flyback diode across the coil.</text>
+  <text x="50" y="260" class="note">• Use a separate 5V supply for the relay coil if required; connect grounds together.</text>
+  <text x="50" y="280" class="note">• Do not drive relay coils directly from ESP GPIO.</text>
+  <text x="50" y="300" class="note">• GPIO4 (D2) is recommended; avoid GPIO0/2/15 at boot.</text>
+
+  <!-- footer small -->
+  <text x="50" y="340" class="lbl">Example wiring for a single-channel mechanical relay.</text>
+</svg>

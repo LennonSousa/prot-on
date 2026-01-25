@@ -33,7 +33,7 @@
 #include <UUID.h>
 
 // define números de pinos
-const int localPort = LED_BUILTIN; // GPIO2
+const int localPort = 4; // GPIO4
 int devicesFound;
 int schedulesFound;
 const char *imagefile = "/image.png";

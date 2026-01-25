@@ -15,6 +15,7 @@
     <script src="\jquery-3.3.1.slim.min.js"></script>
     <script src="\popper.min.js"></script>
     <script src="\bootstrap.min.js"></script>
+    <script src="\script.js"></script>
     <script src="\passos.js"></script>
 </head>
 <body>
@@ -31,8 +32,17 @@
                     </span>
                 </div>
 
-                <div class="col-6">
+                <div class="col-6 d-flex justify-content-center align-items-center">
                     <span>Prot-On</span>
+                    <div class="dropdown ml-3">
+                        <button id="langDropdownBtn" class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <span id="langLabelIcon" class="lang-icon">🇧🇷</span><span id="langLabelText">PT</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right">
+                            <a id="langOptPt" class="dropdown-item lang-option" data-lang="pt" href="#"><span class="lang-icon">🇧🇷</span><span class="lang-text">Português</span></a>
+                            <a id="langOptEn" class="dropdown-item lang-option" data-lang="en" href="#"><span class="lang-icon">🇬🇧</span><span class="lang-text">English</span></a>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="col-3 div-lateral-menu">
@@ -60,7 +70,7 @@
                     <div class="collapse navbar-collapse" id="navbarSupportedContent">
                         <ul class="navbar-nav mr-auto ul-menu">
                             <li class="nav-item">
-                                <a class="nav-link texto-menu" href="index.html">Início <span class="sr-only">(current)</span></a>
+                                <a id="navHomeLink" class="nav-link texto-menu" href="index.html">Início <span class="sr-only">(current)</span></a>
                             </li>
                         </ul>
                     </div>
@@ -75,7 +85,7 @@
     <section class="container titulos-linha">
         <div class="row">
             <div class="col-12">
-                <span>Bem-vindo</span>
+                <span id="welcomeTitle">Bem-vindo</span>
             </div>
         </div>
     </section>
@@ -84,7 +94,7 @@
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-12 col-sm-6">
-                    <span>Olá, esse é o seu primeiro acesso ao sistema de automação residêncial Prot-On, siga esses 3 passos super fáceis para configurar o seu dispositivo.</span>
+                    <span id="welcomeIntro">Olá, esse é o seu primeiro acesso ao sistema de automação residêncial Prot-On, siga esses 3 passos super fáceis para configurar o seu dispositivo.</span>
                 </div>
             </div>
         </div>
@@ -93,7 +103,7 @@
     <section class="container titulos-linha">
         <div class="row">
             <div class="col-12">
-                <span>Siga os passos!</span>
+                <span id="followSteps">Siga os passos!</span>
             </div>
         </div>
     </section>
@@ -105,7 +115,7 @@
                     <div class="card">
                         <div class="card-header" id="headingOne">
                             <h5 class="mb-0">
-                                <button class="btn btn-link" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                <button id="step1Btn" class="btn btn-link" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
                                     1º Passo: O que eu vou controlar?
                                 </button>
                             </h5>
@@ -114,7 +124,7 @@
                         <div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#accordion">
                             <div class="card-body">
                                 <div class="form-group">
-                                    <label for="nomeDisp0">Não se preocupe se errar, você pode alterar tudo mais tarde.</label>
+                                    <label id="labelNomeDisp0" for="nomeDisp0">Não se preocupe se errar, você pode alterar tudo mais tarde.</label>
                                     <input type="text" class="form-control" id="nomeDisp0" aria-describedby="nomeDispositivo" placeholder="O que eu controlo?">
                                     <small id="emailHelp" class="form-text text-muted">Ex: Lâmpada meu quarto, abajur sala.</small>
                                     <small id="salvoAviso" class="form-text text-success"></small>
@@ -122,7 +132,7 @@
                                 <div id="nomeDispAguarde" class="spinner-border text-info" style="display:none" role="status">
                                     <span class="sr-only">Aguarde...</span>
                                 </div>
-                                <button type="button" class="btn btn-info" onclick="dispPrimeiroAcesso()">Salvar</button>
+                                <button id="btSavePrimeiro" type="button" class="btn btn-info" onclick="dispPrimeiroAcesso()">Salvar</button>
                             </div>
                         </div>
                     </div>
@@ -130,7 +140,7 @@
                     <div class="card">
                         <div class="card-header" id="headingTwo">
                             <h5 class="mb-0">
-                                <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                <button id="step2Btn" class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
                                     2º Passo: Conectar a Wi-Fi.
                                 </button>
                             </h5>
@@ -168,7 +178,7 @@
 
                                             <div class="modal-body">
                                                 <div class="form-group">
-                                                    <label for="senhaRede" class="col-form-label">Digite a senha para conectar-se a rede</label>
+                                                    <label id="labelSenhaRede" for="senhaRede" class="col-form-label">Digite a senha para conectar-se a rede</label>
                                                     <input type="text" type="password" class="form-control" id="senhaRede" aria-describedby="senhaRede" placeholder="Senha">
                                                     <small id="conectandoAviso" class="form-text text-success"></small>
                                                 </div>
@@ -179,8 +189,8 @@
                                             </div>
 
                                             <div class="modal-footer">
-                                                <button type="button" class="btn btn-info" onclick="conectarRede('ssidRede', 'senhaRede')">Conectar</button>
-                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Fechar</button>
+                                                <button id="btConectar" type="button" class="btn btn-info" onclick="conectarRede('ssidRede', 'senhaRede')">Conectar</button>
+                                                <button id="btModalClose" type="button" class="btn btn-secondary" data-dismiss="modal">Fechar</button>
                                             </div>
                                         </div>
                                     </div>
@@ -193,7 +203,7 @@
                     <div class="card">
                         <div class="card-header" id="headingThree">
                             <h5 class="mb-0">
-                                <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                <button id="step3Btn" class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
                                     3º Passo: Reiniciar o dispositivo e acessá-lo.
                                 </button>
                             </h5>
@@ -226,5 +236,7 @@
             modal.find('.modal-title').text(recipient)
         })
     </script>
+
+    <div id="iconsAttribution" class="icons-attribution" role="contentinfo"></div>
 </body>
 </html>

@@ -94,3 +94,64 @@ header {
 #modal_footer_excluir {
     display: inline !important;
 }
+
+/* language icon styling */
+.lang-icon {
+    margin-right: 6px;
+    display:inline-block;
+    width:22px;
+    vertical-align:middle;
+}
+.lang-icon img, .lang-icon svg, .flag-img { width:22px; height:auto; display:block; }
+.flag-img { display:inline-block; vertical-align:middle; }
+.lang-text {
+    vertical-align: middle;
+    margin-left:6px;
+} 
+
+/* ensure dropdown menus inside the header appear above other page elements */
+header .dropdown-menu { z-index: 3000; }
+
+
+/* CSS-rendered flags */
+.flag { display:inline-block; width:28px; height:18px; position:relative; border-radius:2px; overflow:hidden; vertical-align:middle; }
+
+/* Brazil - diamond, blue globe with band and stars (simplified CSS approximation) */
+.flag-pt { background:#009b3a; }
+.flag-pt .pt-diamond { position:absolute; left:50%; top:50%; width:22px; height:22px; background:#ffdf00; transform:translate(-50%,-50%) rotate(45deg); border-radius:1px; }
+.flag-pt .pt-circle { position:absolute; left:50%; top:50%; width:12px; height:12px; background:#002776; border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 0 2px rgba(255,255,255,0.05) inset; }
+.flag-pt .pt-band { position:absolute; left:50%; top:50%; width:36px; height:4px; background:#fff; transform:translate(-50%,-50%) rotate(-25deg); border-radius:2px; opacity:0.95; }
+.flag-pt .pt-star { position:absolute; width:2px; height:2px; background:#fff; border-radius:50%; }
+.flag-pt .pt-star-1 { left:44%; top:46%; }
+.flag-pt .pt-star-2 { left:52%; top:38%; }
+.flag-pt .pt-star-3 { left:60%; top:50%; }
+.flag-pt .pt-star-4 { left:52%; top:62%; }
+.flag-pt .pt-star-5 { left:40%; top:58%; }
+
+/* UK - more detailed: white saltires + red saltires + central cross (simplified) */
+.flag-en { background:#012169; }
+.flag-en .en-saltire-white { position:absolute; left:0; top:0; width:100%; height:100%; background:
+  linear-gradient(135deg, rgba(255,255,255,1) 20%, transparent 20%),
+  linear-gradient(45deg, rgba(255,255,255,1) 20%, transparent 20%); background-size:100% 100%; }
+.flag-en .en-saltire-red { position:absolute; left:0; top:0; width:100%; height:100%; background:
+  linear-gradient(135deg, rgba(200,16,45,1) 11%, transparent 11%),
+  linear-gradient(45deg, rgba(200,16,45,1) 11%, transparent 11%); background-size:100% 100%; opacity:0.95; mix-blend-mode:screen; }
+.flag-en .en-vert { position:absolute; left:42%; top:0; width:16%; height:100%; background:#fff; }
+.flag-en .en-vert-red { position:absolute; left:44%; top:0; width:12%; height:100%; background:#c8102e; }
+.flag-en .en-horz { position:absolute; left:0; top:42%; width:100%; height:16%; background:#fff; }
+.flag-en .en-horz-red { position:absolute; left:0; top:44%; width:100%; height:12%; background:#c8102e; }
+.flag-en { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04); }
+
+.dropdown-item.lang-option.active {
+    background-color: rgba(0,0,0,0.06);
+}
+
+/* attribution footer for icons */
+.icons-attribution {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-align: center;
+    margin: 0.5rem 0 1rem 0;
+}
+.icons-attribution a { color: inherit; text-decoration: underline; }
+.icons-attribution a:hover { color: #495057; }

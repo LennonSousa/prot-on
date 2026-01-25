@@ -5,7 +5,7 @@
     });
 
     if (!response.ok) {
-      throw new Error("Erro ao recuperar informações");
+      throw new Error(t("error_fetch"));
     }
 
     const data = await response.json();
@@ -15,6 +15,306 @@
     alert(error.message);
   }
 }
+
+// --- i18n translations ---
+const supportedLangs = ["pt", "en"];
+let currentLang = localStorage.getItem("lang") || "pt";
+let translations = {};
+
+async function loadTranslations() {
+  try {
+    const res = await fetch("/translations.json");
+    if (res.ok) translations = await res.json();
+  } catch (e) {
+    console.warn("Failed to load translations.json", e);
+  }
+}
+
+function t(key) {
+  return (translations[currentLang] && translations[currentLang][key]) || key;
+}
+
+function getFlagSVG(lang) {
+  if (lang === "pt") {
+    return '<img src="/flag_pt.png" alt="Português" class="flag-img" onerror="fallbackFlag(this, \"pt\")" />';
+  }
+  return '<img src="/flag_en.png" alt="English" class="flag-img" onerror="fallbackFlag(this, \"en\")" />';
+}
+
+function fallbackFlag(imgElem, lang) {
+  try {
+    var span = document.createElement("span");
+    span.className = "flag " + (lang === "pt" ? "flag-pt" : "flag-en");
+
+    if (lang === "pt") {
+      var parts = [
+        "pt-diamond",
+        "pt-circle",
+        "pt-band",
+        "pt-star pt-star-1",
+        "pt-star pt-star-2",
+        "pt-star pt-star-3",
+        "pt-star pt-star-4",
+        "pt-star pt-star-5",
+      ];
+      parts.forEach(function (cls) {
+        var s = document.createElement("span");
+        s.className = cls;
+        span.appendChild(s);
+      });
+    } else {
+      var parts = [
+        "en-saltire-white",
+        "en-saltire-red",
+        "en-vert",
+        "en-vert-red",
+        "en-horz",
+        "en-horz-red",
+      ];
+      parts.forEach(function (cls) {
+        var s = document.createElement("span");
+        s.className = cls;
+        span.appendChild(s);
+      });
+    }
+
+    imgElem.parentNode.replaceChild(span, imgElem);
+  } catch (e) {
+    console.warn("fallbackFlag error", e);
+  }
+}
+
+function applyTranslations() {
+  document.title = t("title");
+
+  var btnAdd = document.getElementById("tooltipAddDevice");
+  if (btnAdd) btnAdd.setAttribute("title", t("add_device"));
+
+  document.querySelectorAll('[title="Instagram"]').forEach(function (el) {
+    el.setAttribute("title", t("instagram"));
+  });
+  document.querySelectorAll('[title="Facebook"]').forEach(function (el) {
+    el.setAttribute("title", t("facebook"));
+  });
+
+  $('[data-toggle="tooltip"]').tooltip("dispose").tooltip();
+
+  // modal editar
+  var ssid = document.getElementById("ssidRede");
+  if (ssid) ssid.innerHTML = t("edit");
+  var labelNomeDisp = document.getElementById("labelNomeDisp");
+  if (labelNomeDisp) labelNomeDisp.innerText = t("device_name");
+  var labelIpDisp = document.getElementById("labelIpDisp");
+  if (labelIpDisp) labelIpDisp.innerText = t("ip");
+  var editarSaveBtn = document.getElementById("editarSaveBtn");
+  if (editarSaveBtn) editarSaveBtn.innerText = t("save");
+  var btExcluir = document.getElementById("btExcluir");
+  if (btExcluir) btExcluir.innerText = t("delete");
+  var editarCloseBtn = document.getElementById("editarCloseBtn");
+  if (editarCloseBtn) editarCloseBtn.innerText = t("close");
+
+  // modal novo dispositivo
+  var novoSalvarBtn = document.getElementById("novoSalvarBtn");
+  if (novoSalvarBtn) novoSalvarBtn.innerText = t("save");
+  var novoCloseBtn = document.getElementById("novoCloseBtn");
+  if (novoCloseBtn) novoCloseBtn.innerText = t("close");
+  var labelNomeNovoDisp = document.getElementById("labelNomeNovoDisp");
+  if (labelNomeNovoDisp) labelNomeNovoDisp.innerText = t("device_name");
+  var modalAddTitle = document.getElementById("modalAddTitle");
+  if (modalAddTitle) modalAddTitle.innerText = t("new");
+  var labelIpNovoDisp = document.getElementById("labelIpNovoDisp");
+  if (labelIpNovoDisp) labelIpNovoDisp.innerText = t("ip");
+  var novoCampoObrigatorio = document.getElementById("novoCampoObrigatorio");
+  if (novoCampoObrigatorio)
+    novoCampoObrigatorio.innerText = t("field_required");
+  var novoPaginaAviso = document.getElementById("novoPaginaAviso");
+  if (novoPaginaAviso) novoPaginaAviso.innerText = t("save_will_refresh");
+
+  // modal alarmes / novo alarme
+  var btnNovo = document.getElementById("btnNovoAlarme");
+  if (btnNovo) btnNovo.innerText = t("new");
+  var labelNomeNovoAlarme = document.getElementById("labelNomeNovoAlarme");
+  if (labelNomeNovoAlarme) labelNomeNovoAlarme.innerText = t("alarm_name");
+  var nomeNovoAlarmeFeedback = document.getElementById(
+    "nomeNovoAlarmeFeedback",
+  );
+  if (nomeNovoAlarmeFeedback)
+    nomeNovoAlarmeFeedback.innerText = t("alarm_name_required");
+  var labelHoraNovo = document.getElementById("labelHoraNovo");
+  if (labelHoraNovo) labelHoraNovo.innerText = t("hour");
+  var labelMinutoNovo = document.getElementById("labelMinutoNovo");
+  if (labelMinutoNovo) labelMinutoNovo.innerText = t("minute");
+  var labelAcaoNovo = document.getElementById("labelAcaoNovo");
+  if (labelAcaoNovo) labelAcaoNovo.innerText = t("action");
+  var labelAtivoNovo = document.getElementById("labelAtivoNovo");
+  if (labelAtivoNovo) labelAtivoNovo.innerText = t("status");
+  var novoAlarmeSalvarBtn = document.getElementById("novoAlarmeSalvarBtn");
+  if (novoAlarmeSalvarBtn) novoAlarmeSalvarBtn.innerText = t("save");
+  var novoAlarmeCloseBtn = document.getElementById("novoAlarmeCloseBtn");
+  if (novoAlarmeCloseBtn) novoAlarmeCloseBtn.innerText = t("close");
+
+  var selectAcaoNovo = document.getElementById("selectAcaoNovo");
+  if (selectAcaoNovo) {
+    if (selectAcaoNovo.options.length >= 2) {
+      selectAcaoNovo.options[0].innerHTML = t("off");
+      selectAcaoNovo.options[1].innerHTML = t("on");
+    }
+  }
+  var selectAtivoNovo = document.getElementById("selectAtivoNovo");
+  if (selectAtivoNovo) {
+    if (selectAtivoNovo.options.length >= 2) {
+      selectAtivoNovo.options[0].innerHTML = t("disabled");
+      selectAtivoNovo.options[1].innerHTML = t("enabled");
+    }
+  }
+
+  // toast
+  var toastSmall = document.getElementById("toastSmall");
+  if (toastSmall) toastSmall.innerText = t("now");
+  var toastTitle = document.getElementById("toastTitle");
+  if (toastTitle) toastTitle.innerText = "Prot-On";
+  var toastBody = document.getElementById("toastBody");
+  if (toastBody) toastBody.innerText = t("alarm_created");
+
+  document.querySelectorAll(".sr-only").forEach(function (el) {
+    el.innerText = t("waiting");
+  });
+
+  var langLabelIcon = document.getElementById("langLabelIcon");
+  var langLabelText = document.getElementById("langLabelText");
+  if (langLabelIcon && langLabelText) {
+    if (currentLang === "pt") {
+      langLabelIcon.innerHTML = getFlagSVG("pt");
+      langLabelText.innerText = t("lang_pt");
+    } else {
+      langLabelIcon.innerHTML = getFlagSVG("en");
+      langLabelText.innerText = t("lang_en");
+    }
+  }
+  var langOptPt = document.getElementById("langOptPt");
+  if (langOptPt) {
+    langOptPt.innerHTML =
+      '<span class="lang-icon">' +
+      getFlagSVG("pt") +
+      '</span><span class="lang-text">' +
+      t("lang_pt") +
+      "</span>";
+    if (currentLang === "pt") langOptPt.classList.add("active");
+    else langOptPt.classList.remove("active");
+  }
+  var langOptEn = document.getElementById("langOptEn");
+  if (langOptEn) {
+    langOptEn.innerHTML =
+      '<span class="lang-icon">' +
+      getFlagSVG("en") +
+      '</span><span class="lang-text">' +
+      t("lang_en") +
+      "</span>";
+    if (currentLang === "en") langOptEn.classList.add("active");
+    else langOptEn.classList.remove("active");
+  }
+
+  document.querySelectorAll('[aria-label="Fechar"]').forEach(function (el) {
+    el.setAttribute("aria-label", t("close"));
+  });
+
+  var salvandoAviso = document.getElementById("salvandoAviso");
+  if (salvandoAviso) salvandoAviso.innerText = t("save_will_refresh");
+
+  document.querySelectorAll("button").forEach(function (b) {
+    var txt = (b.innerText || "").trim();
+    if (txt === "Fechar" || txt === "Close") b.innerText = t("close");
+    if (txt === "Salvar" || txt === "Save") b.innerText = t("save");
+    if (txt === "Excluir" || txt === "Delete") b.innerText = t("delete");
+    if (txt === "Novo" || txt === "New") b.innerText = t("new");
+  });
+
+  var excluirAviso = document.getElementById("excluirAviso");
+  if (excluirAviso) excluirAviso.innerText = t("delete_confirm");
+  var btExcluirSim = document.getElementById("btExcluirSim");
+  if (btExcluirSim) btExcluirSim.innerText = t("yes");
+  var btExcluirNao = document.getElementById("btExcluirNao");
+  if (btExcluirNao) btExcluirNao.innerText = t("no");
+
+  var welcomeTitle = document.getElementById("welcomeTitle");
+  if (welcomeTitle) welcomeTitle.innerText = t("welcome");
+  var welcomeIntro = document.getElementById("welcomeIntro");
+  if (welcomeIntro) welcomeIntro.innerText = t("welcome_intro");
+  var followSteps = document.getElementById("followSteps");
+  if (followSteps) followSteps.innerText = t("follow_steps");
+  var step1Btn = document.getElementById("step1Btn");
+  if (step1Btn) step1Btn.innerText = t("step1_title");
+  var step2Btn = document.getElementById("step2Btn");
+  if (step2Btn) step2Btn.innerText = t("step2_title");
+  var step3Btn = document.getElementById("step3Btn");
+  if (step3Btn) step3Btn.innerText = t("step3_title");
+  var labelNomeDisp0 = document.getElementById("labelNomeDisp0");
+  if (labelNomeDisp0) labelNomeDisp0.innerText = t("dont_worry");
+  var nomeDisp0 = document.getElementById("nomeDisp0");
+  if (nomeDisp0) nomeDisp0.placeholder = t("input_placeholder");
+  var emailHelp = document.getElementById("emailHelp");
+  if (emailHelp) emailHelp.innerText = t("example_help");
+  var btSavePrimeiro = document.getElementById("btSavePrimeiro");
+  if (btSavePrimeiro) btSavePrimeiro.innerText = t("save");
+  var btProcuraRedes = document.getElementById("btProcuraRedes");
+  if (btProcuraRedes) btProcuraRedes.innerText = t("search_networks");
+  var labelSenhaRede = document.getElementById("labelSenhaRede");
+  if (labelSenhaRede) labelSenhaRede.innerText = t("enter_password");
+  var btConectar = document.getElementById("btConectar");
+  if (btConectar) btConectar.innerText = t("connect");
+  var btFinaliza = document.getElementById("btFinaliza");
+  if (btFinaliza) btFinaliza.innerText = t("finalize");
+  var passo3Lb = document.getElementById("passo3Lb");
+  if (passo3Lb) passo3Lb.innerText = t("dont_worry");
+  var navHomeLink = document.getElementById("navHomeLink");
+  if (navHomeLink)
+    navHomeLink.innerHTML =
+      t("home") + ' <span class="sr-only">' + t("current") + "</span>";
+
+  try {
+    if (window.$ && $("#modalAlarmes").is(":visible")) {
+      var id = $("#modalAlarmes").data("id");
+      if (id) procuraAlarmes(id);
+    }
+  } catch (e) {}
+
+  document.documentElement.lang = currentLang === "en" ? "en" : "pt-br";
+}
+
+function setLang(lang) {
+  if (supportedLangs.indexOf(lang) !== -1) {
+    currentLang = lang;
+    localStorage.setItem("lang", lang);
+    applyTranslations();
+  }
+}
+
+window.addEventListener("DOMContentLoaded", async function () {
+  await loadTranslations();
+
+  var langBtn = document.getElementById("langDropdownBtn");
+  if (langBtn) {
+    var langLabel = document.getElementById("langLabel");
+    if (langLabel)
+      langLabel.innerText = currentLang === "pt" ? t("lang_pt") : t("lang_en");
+    document.querySelectorAll(".lang-option").forEach(function (el) {
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        var l = el.getAttribute("data-lang");
+        setLang(l);
+      });
+    });
+  } else {
+    var sel = document.getElementById("langSelect");
+    if (sel) {
+      sel.value = currentLang;
+      sel.addEventListener("change", function (e) {
+        setLang(e.target.value);
+      });
+    }
+  }
+  applyTranslations();
+});
 
 function criaListaDisp(dispositivosJson) {
   //Select com a lista de pinos
@@ -160,13 +460,13 @@ async function novoDisp() {
       document.getElementById("novoDispBtns").style.display = "inline-block";
       document.getElementById("novoDispAguarde").style.display = "none";
 
-      alert("Erro ao criar dispositivo: " + data?.message);
+      alert(t("error_create_device") + " " + data?.message);
     }
   } catch (error) {
     document.getElementById("novoDispBtns").style.display = "inline-block";
     document.getElementById("novoDispAguarde").style.display = "none";
 
-    alert("Erro ao adicionar dispositivo: " + error);
+    alert(t("error_add_device") + " " + error);
   }
 }
 
@@ -202,13 +502,13 @@ async function editarDisp() {
       document.getElementById("editarDispBtns").style.display = "inline-block";
       document.getElementById("editarDispAguarde").style.display = "none";
 
-      alert("Erro ao editar dispositivo: " + data?.message);
+      alert(t("error_edit_device") + " " + data?.message);
     }
   } catch (error) {
     document.getElementById("editarDispBtns").style.display = "inline-block";
     document.getElementById("editarDispAguarde").style.display = "none";
 
-    alert("Erro ao editar dispositivo: " + error);
+    alert(t("error_edit_device") + " " + error);
   }
 }
 
@@ -236,13 +536,13 @@ async function excluirSim() {
       document.getElementById("editarDispBtns").style.display = "inline-block";
       document.getElementById("editarDispAguarde").style.display = "none";
 
-      alert("Erro ao excluir dispositivo: " + data?.message);
+      alert(t("error_delete_device") + " " + data?.message);
     }
   } catch (error) {
     document.getElementById("editarDispBtns").style.display = "inline-block";
     document.getElementById("editarDispAguarde").style.display = "none";
 
-    alert("Erro ao excluir dispositivo: " + error);
+    alert(t("error_delete_device") + " " + error);
   }
 }
 
@@ -268,7 +568,7 @@ async function sendData(btn, id) {
     );
 
     if (!response.ok) {
-      throw new Error("Erro ao modificar estado");
+      throw new Error(t("error_change_state"));
     }
 
     const data = await response.json();
@@ -279,7 +579,7 @@ async function sendData(btn, id) {
       document.getElementById(btn).className = "btn btn-warning";
     }
   } catch (error) {
-    alert("Erro ao modificar estado: " + error);
+    alert(t("error_change_state") + " " + error);
   }
 }
 
@@ -293,7 +593,7 @@ async function procuraAlarmes(id) {
       },
     );
     if (!response.ok) {
-      throw new Error("Erro ao recuperar informações");
+      throw new Error(t("error_fetch"));
     }
 
     const data = await response.json();
@@ -316,7 +616,7 @@ function listaAlarmes(schedulesJson) {
   if (!schedulesJson || schedulesJson.length === 0) {
     var divMsg = document.createElement("div");
     divMsg.className = "alert alert-info";
-    divMsg.innerText = "Nenhum alarme registrado.";
+    divMsg.innerText = t("no_alarms");
     listaAlarmes.appendChild(divMsg);
     return;
   }
@@ -365,7 +665,19 @@ function listaAlarmes(schedulesJson) {
     inputNome.type = "text";
     inputNome.className = "form-control";
     inputNome.value = schedule.name;
+
+    inputNome.oninput = function () {
+      this.classList.remove("is-invalid");
+      var fb = document.getElementById("nomeAlarmeFeedback" + schedule.id);
+      if (fb) fb.innerText = t("alarm_name_required");
+    };
     colunaNome.appendChild(inputNome);
+
+    var divFeedback = document.createElement("div");
+    divFeedback.className = "invalid-feedback";
+    divFeedback.id = "nomeAlarmeFeedback" + schedule.id;
+    divFeedback.innerText = t("alarm_name_required");
+    colunaNome.appendChild(divFeedback);
 
     // Horário
     var colunaHora = document.createElement("div");
@@ -375,7 +687,7 @@ function listaAlarmes(schedulesJson) {
     colunaMinuto.className = "col-6";
 
     var spanHora = document.createElement("label");
-    spanHora.innerHTML = "Hora";
+    spanHora.innerHTML = t("hour");
     var selectHora = document.createElement("select");
     selectHora.className = "form-control";
     selectHora.id = "selectHora" + schedule.id;
@@ -388,7 +700,7 @@ function listaAlarmes(schedulesJson) {
     selectHora.selectedIndex = schedule.hour;
 
     var spanMinuto = document.createElement("label");
-    spanMinuto.innerHTML = "Minuto";
+    spanMinuto.innerHTML = t("minute");
     var selectMinuto = document.createElement("select");
     selectMinuto.className = "form-control";
     selectMinuto.id = "selectMinuto" + schedule.id;
@@ -419,12 +731,12 @@ function listaAlarmes(schedulesJson) {
     selectAcao.id = "selectAcao" + schedule.id;
 
     var optionAcao01 = document.createElement("option");
-    optionAcao01.innerHTML = "Desligar";
+    optionAcao01.innerHTML = t("off");
     optionAcao01.value = "0";
     selectAcao.appendChild(optionAcao01);
 
     var optionAcao02 = document.createElement("option");
-    optionAcao02.innerHTML = "Ligar";
+    optionAcao02.innerHTML = t("on");
     optionAcao02.value = "1";
     selectAcao.appendChild(optionAcao02);
     selectAcao.selectedIndex = schedule.action;
@@ -436,12 +748,12 @@ function listaAlarmes(schedulesJson) {
     selectAtivo.id = "selectAtivo" + schedule.id;
 
     var optionAtivo01 = document.createElement("option");
-    optionAtivo01.innerHTML = "Desativado";
+    optionAtivo01.innerHTML = t("disabled");
     optionAtivo01.value = "0";
     selectAtivo.appendChild(optionAtivo01);
 
     var optionAtivo02 = document.createElement("option");
-    optionAtivo02.innerHTML = "Ativado";
+    optionAtivo02.innerHTML = t("enabled");
     optionAtivo02.value = "1";
     selectAtivo.appendChild(optionAtivo02);
     selectAtivo.selectedIndex = schedule.active;
@@ -544,13 +856,39 @@ async function novoAlarme() {
     document.getElementById("novoAlarmeAguarde").style.display = "inline-block";
 
     var deviceId = document.getElementById("deviceIdNovo").value;
-    var name = document.getElementById("nomeNovoAlarme").value;
+    var nameInput = document.getElementById("nomeNovoAlarme");
+    var name = nameInput ? nameInput.value.trim() : "";
+
+    if (!name) {
+      if (nameInput) {
+        nameInput.classList.add("is-invalid");
+        var fb = document.getElementById("nomeNovoAlarmeFeedback");
+        if (fb) fb.innerText = t("alarm_name_required");
+        nameInput.focus();
+      }
+      document.getElementById("novoAlarmeBtns").style.display = "inline-block";
+      document.getElementById("novoAlarmeAguarde").style.display = "none";
+      return;
+    }
+
     var hour = String(document.getElementById("selectHoraNovo").selectedIndex);
     var minute = String(
       document.getElementById("selectMinutoNovo").selectedIndex,
     );
-    var action = document.getElementById("selectAcaoNovo").selectedIndex;
-    var active = document.getElementById("selectAtivoNovo").selectedIndex;
+
+    var actionEl = document.getElementById("selectAcaoNovo");
+    var action =
+      actionEl && actionEl.value !== undefined
+        ? String(actionEl.value)
+        : String(actionEl.selectedIndex);
+    var activeEl = document.getElementById("selectAtivoNovo");
+    var active =
+      activeEl && activeEl.value !== undefined
+        ? String(activeEl.value)
+        : String(activeEl.selectedIndex);
+
+    if (action !== "0" && action !== "1") action = "0";
+    if (active !== "0" && active !== "1") active = "1";
 
     var body = {
       deviceId,
@@ -576,7 +914,7 @@ async function novoAlarme() {
       $("#modalAlarmes").data("id", deviceId);
       $("#modalAlarmes").data("nome", deviceName);
       $("#modalAlarmes").modal("show");
-      showToast("Alarme criado com sucesso.");
+      showToast(t("alarm_created"));
 
       document.getElementById("novoAlarmeBtns").style.display = "inline-block";
       document.getElementById("novoAlarmeAguarde").style.display = "none";
@@ -586,13 +924,13 @@ async function novoAlarme() {
       document.getElementById("novoAlarmeBtns").style.display = "inline-block";
       document.getElementById("novoAlarmeAguarde").style.display = "none";
 
-      alert("Erro ao criar alarme: " + data?.message);
+      alert(t("error_create_alarm") + " " + data?.message);
     }
   } catch (error) {
     document.getElementById("novoAlarmeBtns").style.display = "inline-block";
     document.getElementById("novoAlarmeAguarde").style.display = "none";
 
-    alert("Erro ao adicionar alarme: " + error);
+    alert(t("error_add_alarm") + " " + error);
   }
 }
 
@@ -606,13 +944,36 @@ function showToast(message) {
 
 // Editar um alarme
 async function editarAlarme(id) {
-  var name = document.getElementById("nomeAlarme" + id).value;
+  var nameInput = document.getElementById("nomeAlarme" + id);
+  var name = nameInput ? nameInput.value.trim() : "";
+  if (!name) {
+    if (nameInput) {
+      nameInput.classList.add("is-invalid");
+      var fb = document.getElementById("nomeAlarmeFeedback" + id);
+      if (fb) fb.innerText = t("alarm_name_required");
+      nameInput.focus();
+    }
+    return;
+  }
+
   var hour = String(document.getElementById("selectHora" + id).selectedIndex);
   var minute = String(
     document.getElementById("selectMinuto" + id).selectedIndex,
   );
-  var action = document.getElementById("selectAcao" + id).selectedIndex;
-  var active = document.getElementById("selectAtivo" + id).selectedIndex;
+
+  var actionEl = document.getElementById("selectAcao" + id);
+  var action =
+    actionEl && actionEl.value !== undefined
+      ? String(actionEl.value)
+      : String(actionEl.selectedIndex);
+  var activeEl = document.getElementById("selectAtivo" + id);
+  var active =
+    activeEl && activeEl.value !== undefined
+      ? String(activeEl.value)
+      : String(activeEl.selectedIndex);
+
+  if (action !== "0" && action !== "1") action = "0";
+  if (active !== "0" && active !== "1") active = "1";
 
   var body = {
     name,
@@ -636,10 +997,10 @@ async function editarAlarme(id) {
     if (response.ok) {
       document.getElementById("progresso" + id).style.display = "none";
       document.getElementById("btnSalvar" + id).style.display = "inline-block";
-      showToast("Alarme editado com sucesso.");
+      showToast(t("alarm_edited"));
     }
   } catch (error) {
-    alert("Erro ao editar alarme: " + error);
+    alert(t("error_edit_alarm") + " " + error);
     document.getElementById("progresso" + id).style.display = "none";
     document.getElementById("btnSalvar" + id).style.display = "inline-block";
   }
@@ -660,10 +1021,10 @@ async function excluirAlarme(id) {
       document.getElementById("progressoExcluir" + id).style.display = "none";
       document.getElementById("linhaAlarme" + id).style.opacity = 0;
       document.getElementById("linhaAlarme" + id).style.display = "none";
-      showToast("Alarme excluído com sucesso.");
+      showToast(t("alarm_deleted"));
     }
   } catch (error) {
-    alert("Erro ao excluir alarme: " + error);
+    alert(t("error_delete_alarm") + " " + error);
     document.getElementById("progressoExcluir" + id).style.display = "none";
     document.getElementById("btnExcluir" + id).style.display = "inline-block";
   }

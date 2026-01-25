@@ -31,8 +31,17 @@
                     </span>
                 </div>
 
-                <div class="col-6">
+                <div class="col-6 d-flex justify-content-center align-items-center">
                     <span>Prot-On</span>
+                    <div class="dropdown ml-3">
+                        <button id="langDropdownBtn" class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-toggle="dropdown" data-boundary="viewport" aria-haspopup="true" aria-expanded="false">
+                            <span id="langLabelIcon" class="lang-icon">🇧🇷</span><span id="langLabelText">PT</span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right">
+                            <a id="langOptPt" class="dropdown-item lang-option" data-lang="pt" href="#"><span class="lang-icon">🇧🇷</span><span class="lang-text">Português</span></a>
+                            <a id="langOptEn" class="dropdown-item lang-option" data-lang="en" href="#"><span class="lang-icon">🇬🇧</span><span class="lang-text">English</span></a>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="col-3 div-lateral-menu">
@@ -59,7 +68,7 @@
 
                     <div class="collapse navbar-collapse" id="navbarSupportedContent">
                         <ul class="navbar-nav mr-auto ul-menu">
-                            <li class="nav-item" data-toggle="tooltip" data-placement="bottom" title="Adicionar dispositivo" aria-hidden="true">
+                            <li id="tooltipAddDevice" class="nav-item" data-toggle="tooltip" data-placement="bottom" title="Adicionar dispositivo" aria-hidden="true">
                                 <button data-toggle="modal" data-target="#modalAdd" class="btn btn-outline-light btn-sm">
                                     <span class="oi oi-plus"></span>
                                 </button>
@@ -96,12 +105,12 @@
 
                     <div class="modal-body">
                         <div class="form-group">
-                            <label for="nomeDisp" class="col-form-label">Nome do dispositivo</label>
+                            <label id="labelNomeDisp" for="nomeDisp" class="col-form-label">Nome do dispositivo</label>
                             <input type="text" class="form-control" id="nomeDisp" aria-describedby="nomeDisp" placeholder="Nome">
                         </div>
 
                         <div class="form-group">
-                            <label for="ipDisp" class="col-form-label">IP</label>
+                            <label id="labelIpDisp" for="ipDisp" class="col-form-label">IP</label>
                             <input id="ipDisp" class="form-control" aria-describedby="ipDisp" placeholder="IP do dispositivo" type="text" disabled="">
                             <small id="salvandoAviso" class="form-text text-muted">Ao clicar em salvar, a página será atualizada automaticamente!</small>
                         </div>
@@ -109,9 +118,9 @@
 
                     <div id="modal_footer_excluir" class="modal-footer">
                         <div id="editarDispBtns" class="btn-group">
-                            <button type="button" class="btn btn-info btn-sm" onclick="editarDisp()">Salvar</button>
+                            <button id="editarSaveBtn" type="button" class="btn btn-info btn-sm" onclick="editarDisp()">Salvar</button>
                             <button type="button" id="btExcluir" class="btn btn-danger btn-sm" onclick="excluirConfirma()">Excluir</button>
-                            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
+                            <button id="editarCloseBtn" type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
                         </div>
                         <div class="form-group" id="divExcluir" style="display: none;">
                             <small id="excluirAviso" class="form-text text-muted">Tem certeza que deseja excluir esse item? Esta ação não poderá ser desfeita.</small>
@@ -143,7 +152,7 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Novo</h5>
+                    <h5 id="modalAddTitle" class="modal-title">Novo</h5>
                     <h5 class="modal-title"></h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Fechar">
                         <span aria-hidden="true">&times;</span>
@@ -153,22 +162,22 @@
                 <form>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label for="nomeNovoDisp" class="col-form-label">Nome do dispositivo</label>
+                            <label id="labelNomeNovoDisp" for="nomeNovoDisp" class="col-form-label">Nome do dispositivo</label>
                             <input type="text" class="form-control" id="nomeNovoDisp" aria-describedby="nomeNovoDisp" placeholder="Nome*" required="">
                         </div>
 
                         <div class="form-group">
-                            <label for="ipNovoDisp" class="col-form-label">IP</label>
+                            <label id="labelIpNovoDisp" for="ipNovoDisp" class="col-form-label">IP</label>
                             <input id="ipNovoDisp" class="form-control" aria-describedby="ipNovoDisp" placeholder="IP do dispositivo*" type="text" required="">
-                            <small class="form-text text-muted">*Campo obrigatório.</small>
-                            <small class="form-text text-muted">Ao clicar em salvar, a página será atualizada automaticamente!</small>
+                            <small id="novoCampoObrigatorio" class="form-text text-muted">*Campo obrigatório.</small>
+                            <small id="novoPaginaAviso" class="form-text text-muted">Ao clicar em salvar, a página será atualizada automaticamente!</small>
                         </div>
                     </div>
 
                     <div class="modal-footer">
                         <div id="novoDispBtns" class="btn-group">
-                            <button type="button" class="btn btn-info btn-sm" onclick="novoDisp()">Salvar</button>
-                            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
+                            <button id="novoSalvarBtn" type="button" class="btn btn-info btn-sm" onclick="novoDisp()">Salvar</button>
+                            <button id="novoCloseBtn" type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
                         </div>
 
                         <div id="novoDispAguarde" class="spinner-border text-info" style="display:none" role="status">
@@ -223,23 +232,24 @@
                         <input type="hidden" id="deviceIdNovo" value="">
 
                         <div class="form-group">
-                            <label for="nomeNovoAlarme" class="col-form-label">Nome do alarme</label>
+                            <label id="labelNomeNovoAlarme" for="nomeNovoAlarme" class="col-form-label">Nome do alarme</label>
                             <input type="text" class="form-control" id="nomeNovoAlarme" placeholder="Nome*" required>
+                            <div class="invalid-feedback" id="nomeNovoAlarmeFeedback">Nome do alarme é obrigatório.</div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group col-6">
-                                <label for="selectHoraNovo">Hora</label>
+                                <label id="labelHoraNovo" for="selectHoraNovo">Hora</label>
                                 <select id="selectHoraNovo" class="form-control"></select>
                             </div>
                             <div class="form-group col-6">
-                                <label for="selectMinutoNovo">Minuto</label>
+                                <label id="labelMinutoNovo" for="selectMinutoNovo">Minuto</label>
                                 <select id="selectMinutoNovo" class="form-control"></select>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label for="selectAcaoNovo">Ação</label>
+                            <label id="labelAcaoNovo" for="selectAcaoNovo">Ação</label>
                             <select id="selectAcaoNovo" class="form-control">
                                 <option value="0">Desligar</option>
                                 <option value="1">Ligar</option>
@@ -247,7 +257,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="selectAtivoNovo">Estado</label>
+                            <label id="labelAtivoNovo" for="selectAtivoNovo">Estado</label>
                             <select id="selectAtivoNovo" class="form-control">
                                 <option value="0">Desativado</option>
                                 <option value="1">Ativado</option>
@@ -257,8 +267,8 @@
 
                     <div class="modal-footer">
                         <div id="novoAlarmeBtns" class="btn-group">
-                            <button type="button" class="btn btn-info btn-sm" onclick="novoAlarme()">Salvar</button>
-                            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
+                            <button id="novoAlarmeSalvarBtn" type="button" class="btn btn-info btn-sm" onclick="novoAlarme()">Salvar</button>
+                            <button id="novoAlarmeCloseBtn" type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Fechar</button>
                         </div>
 
                         <div id="novoAlarmeAguarde" class="spinner-border text-info" style="display:none" role="status">
@@ -326,10 +336,12 @@
             document.getElementById("nomeDispNovoAlarme").innerHTML = nome || '';
 
             var nomeInput = document.getElementById("nomeNovoAlarme");
-            if (nomeInput) { nomeInput.value = ""; }
-
-            $('#modalAlarmes').modal('hide');
-
+            if (nomeInput) { 
+                nomeInput.value = ""; 
+                nomeInput.classList.remove('is-invalid');
+                var fb = document.getElementById('nomeNovoAlarmeFeedback');
+                if (fb) fb.innerText = t('alarm_name_required');
+            }
             var selectHora = document.getElementById("selectHoraNovo");
             if (selectHora.options.length == 0) {
                 for (var x = 0; x <= 23; x++) {
@@ -357,7 +369,7 @@
         $('#modalNovoAlarme').on('shown.bs.modal', function (event) {
             var nomeInput = document.getElementById("nomeNovoAlarme");
             if (nomeInput) {
-                nomeInput.focus();
+                nomeInput.oninput = function() { this.classList.remove('is-invalid'); };
             }
         });
     </script>
@@ -367,17 +379,19 @@
         <div id="toastContainer">
             <div id="toastAlarme" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="2000">
                 <div class="toast-header">
-                    <strong class="mr-auto">Prot-On</strong>
-                    <small class="text-muted">agora</small>
+                    <strong id="toastTitle" class="mr-auto">Prot-On</strong>
+                    <small id="toastSmall" class="text-muted">agora</small>
                     <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Fechar">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <div class="toast-body">
+                <div id="toastBody" class="toast-body">
                     Alarme criado com sucesso.
                 </div>
             </div>
         </div>
     </div>
+
+    <div id="iconsAttribution" class="icons-attribution" role="contentinfo"></div>
 </body>
 </html>

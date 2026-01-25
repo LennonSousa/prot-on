@@ -18,18 +18,18 @@ async function dispPrimeiroAcesso() {
 
     if (!response.ok) {
       document.getElementById("nomeDispAguarde").style.display = "none";
-      document.getElementById("salvoAviso").innerHTML = "Salvo com sucesso!";
+      document.getElementById("salvoAviso").innerHTML = t("saved_success");
       document.getElementById("collapseOne").className = "collapse";
       document.getElementById("collapseTwo").className = "collapse show";
     } else {
       const data = await response.json();
 
       document.getElementById("nomeDispAguarde").style.display = "none";
-      alert("Erro ao editar dispositivo: " + data?.message);
+      alert(t("error_edit_device") + " " + data?.message);
     }
   } catch (error) {
     document.getElementById("nomeDispAguarde").style.display = "none";
-    alert("Erro ao editar dispositivo: " + error);
+    alert(t("error_edit_device") + " " + error);
     return;
   }
 }
@@ -48,7 +48,7 @@ async function procuraRedes() {
 
     if (!response.ok || response.status !== 201) {
       document.getElementById("redesDispAguarde").style.display = "none";
-      alert("Erro ao recuperar informações: " + data?.message);
+      alert(t("error_fetch") + " " + data?.message);
 
       return;
     }
@@ -56,7 +56,7 @@ async function procuraRedes() {
     listaRedes({ data });
   } catch (error) {
     document.getElementById("redesDispAguarde").style.display = "none";
-    alert("Erro ao recuperar informações: " + error);
+    alert(t("error_fetch") + " " + error);
   }
 }
 
@@ -105,20 +105,18 @@ async function conectarRede(ssid, senha) {
     if (response.status !== 201) {
       document.getElementById("conectaDispAguarde").style.display = "none";
       document.getElementById("conectandoAviso").innerHTML =
-        error.message || "Não foi possível conectar!";
+        data?.message || t("cannot_connect");
 
-      return response.json();
+      return;
     }
 
     if (response.ok && data.baseUrl) {
       document.getElementById("conectaDispAguarde").style.display = "none";
       document.getElementById("conectandoAviso").innerHTML =
-        "Conectado com sucesso!";
-      document.getElementById("passo3Lb").innerHTML =
-        "Esse é o endereço do seu dispositivo, anote-o para poder acessa-lo depois";
+        t("connected_success");
+      document.getElementById("passo3Lb").innerHTML = t("device_address_info");
       document.getElementById("ipDisp0").value = data.baseUrl;
-      document.getElementById("passo3Ajuda").innerHTML =
-        "O seu dispositivo está pronto, agora clique em Finalizar, ele irá reiniciar automaticamente e então você poderá acessá-lo inserindo o endereço em qualquer navegador de internet.";
+      document.getElementById("passo3Ajuda").innerHTML = t("device_ready_info");
       document.getElementById("btFinaliza").disabled = false;
       $("#modalConectar").modal("hide");
       document.getElementById("collapseTwo").className = "collapse";
@@ -127,7 +125,7 @@ async function conectarRede(ssid, senha) {
   } catch (error) {
     document.getElementById("conectaDispAguarde").style.display = "none";
     document.getElementById("conectandoAviso").innerHTML =
-      error.message || "Não foi possível conectar!";
+      error.message || t("cannot_connect");
   }
 }
 
@@ -140,9 +138,9 @@ async function concluiConfig() {
     if (response.ok) {
       window.location = document.getElementById("ipDisp0").value;
     } else {
-      alert("Erro ao finalizar configuração");
+      alert(t("error_finish_config"));
     }
   } catch (error) {
-    alert("Erro de conexão: " + error);
+    alert(t("error_connection") + " " + error);
   }
 }

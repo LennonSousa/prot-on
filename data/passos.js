@@ -16,7 +16,7 @@ async function dispPrimeiroAcesso() {
       body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
+    if (response.ok) {
       document.getElementById("nomeDispAguarde").style.display = "none";
       document.getElementById("salvoAviso").innerHTML = t("saved_success");
       document.getElementById("collapseOne").className = "collapse";
@@ -46,7 +46,7 @@ async function procuraRedes() {
 
     const data = await response.json();
 
-    if (!response.ok || response.status !== 201) {
+    if (!response.ok || response.status !== 200) {
       document.getElementById("redesDispAguarde").style.display = "none";
       alert(t("error_fetch") + " " + data?.message);
 
@@ -78,7 +78,9 @@ function listaRedes({ data }) {
     btn.setAttribute("data-target", "#modalConectar");
     btn.setAttribute("data-ssid", rede.ssid);
 
-    btn.innerHTML = rede.ssid + " (" + rede.secure + ")";
+    const networkSecurity = rede.secure ? t("secure") : t("opened");
+
+    btn.innerHTML = rede.ssid + " (" + networkSecurity + ")";
 
     listaRedesBotoes.appendChild(btn);
   }
